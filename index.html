@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>INDOMIEVERSE — Collectible Character Prototype</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Figtree:wght@400;500;600&family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light;--bg:#fbf9f4;--s1:#ffffff;--s2:#f2ede2;--line:#e5ddcc;--cream:#241a10;--mute:#6f6350;--red:#d9322a;--yel:#f5b81c;--acc:#c4271f;--gold:#a8812f;--sh:0 6px 22px -12px rgba(60,40,10,.28);--okbg:#e9f6e2;--okbd:#7bb668;--erbg:#fdebea;
+--d:'Bricolage Grotesque','Arial Black',sans-serif;--b:'Figtree',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme=dark]{color-scheme:dark;--bg:#16130f;--s1:#201b15;--s2:#2b241b;--line:#3a3025;--cream:#f5ead3;--mute:#b3a58d;--acc:#f5b81c;--gold:#c29a4b;--sh:none;--okbg:#1f2e1a;--okbd:#4d7a3c;--erbg:#34171a}*,*::before,*::after{box-sizing:inherit}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--cream);font:400 16px/1.55 var(--b);overflow-x:hidden}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--yel);outline-offset:2px}
+h1,h2,h3{font-family:var(--d);margin:0;line-height:1.1;letter-spacing:-.01em}
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+nav{position:sticky;top:0;height:100vh;padding:24px 16px;border-right:1px solid var(--line);background:var(--s1);display:flex;flex-direction:column;gap:6px}
+.logo{display:flex;align-items:center;gap:8px;padding:0 6px 18px}.logo img{height:38px;width:auto;border-radius:6px;display:block}.logo span{font:italic 400 28px/1 'Lilita One','Arial Black',sans-serif;letter-spacing:.02em;color:#1ea7e1;-webkit-text-stroke:4px #fff;paint-order:stroke fill;filter:drop-shadow(0 1px 0 #d9322a) drop-shadow(0 2px 2px rgba(0,0,0,.35));transform:skewX(-6deg);padding-right:4px}
+nav button{display:flex;align-items:center;gap:10px;background:none;border:0;border-radius:10px;padding:11px 12px;text-align:left;color:var(--mute);font-weight:500}
+nav button:hover{background:var(--s2);color:var(--cream)}nav button[aria-current=page]{background:var(--s2);color:var(--acc);box-shadow:inset 3px 0 var(--red)}
+nav svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.note{margin-top:auto;font-size:12px;color:var(--mute);padding:10px;border:1px dashed var(--line);border-radius:10px}
+main{padding:32px clamp(16px,4vw,48px) 56px;max-width:1180px;width:100%}
+.hero{display:grid;grid-template-columns:1.1fr 1fr;gap:28px;align-items:stretch;margin-bottom:32px}
+.hero h1{font-size:clamp(30px,4.6vw,52px);font-weight:800}.hero p{color:var(--mute);max-width:46ch}
+.panel{background:var(--s1);border:1px solid var(--line);border-radius:18px;padding:20px}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin:20px 0}
+.ring{--p:0;width:92px;height:92px;border-radius:50%;background:conic-gradient(var(--yel) calc(var(--p)*1%),var(--s2) 0);display:grid;place-items:center;flex:none}
+.ring span{width:70px;height:70px;border-radius:50%;background:var(--s1);display:grid;place-items:center;font:800 20px var(--d)}
+.feat{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--line);cursor:pointer;min-height:320px;display:block;padding:0;text-align:left;background:var(--s2);width:100%}
+.feat .art{position:absolute;inset:0}.feat .art svg{width:100%;height:100%;object-fit:cover}
+.feat .cap{position:absolute;left:0;right:0;bottom:0;padding:48px 20px 18px;background:linear-gradient(transparent,rgba(10,8,5,.92))}
+.feat .cap{color:#f5ead3}.cap h3{font-size:26px}.cap small{color:#d3c6ad}
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:34px 0 14px;flex-wrap:wrap}.sec h2{font-size:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.card{position:relative;background:var(--s1);border:1px solid var(--line);border-radius:16px;overflow:hidden;padding:0;text-align:left;transition:transform .2s,border-color .2s,box-shadow .2s;display:block;width:100%;box-shadow:var(--sh)}
+.card:hover{transform:translateY(-4px);border-color:var(--rc);box-shadow:0 12px 30px -12px var(--rc)}
+.card .art{aspect-ratio:1;position:relative}.car{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--line);margin-bottom:28px;background:#1b1610;color:#f5ead3;aspect-ratio:16/9;max-height:520px;min-height:230px}
+.sl{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .6s,visibility .6s}.sl.on{opacity:1;visibility:visible}
+.sl>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.sl>video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.sl .tx{position:absolute;left:0;right:0;bottom:0;padding:48px clamp(16px,3vw,32px) 22px;background:linear-gradient(transparent,rgba(10,8,5,.85))}.sl .tx h3{font-size:clamp(20px,3vw,30px)}
+.ph{position:absolute;inset:0;display:grid;grid-template-columns:1.3fr 1fr;align-items:center;gap:16px;padding:clamp(18px,4vw,56px);background:var(--g)}
+.ph .ar{width:min(100%,250px);aspect-ratio:1;border-radius:50%;overflow:hidden;justify-self:center;border:3px solid rgba(255,255,255,.75);box-shadow:0 14px 40px -12px rgba(0,0,0,.6)}.ph .ar svg,.ph .ar .pic{width:100%;height:100%}
+.tg{font-size:12px;border:1px dashed rgba(255,255,255,.7);border-radius:6px;padding:1px 8px}
+@keyframes fo{to{opacity:0;visibility:hidden}}.sl.on .tx{animation:fo .8s 5s forwards}.car:hover .sl .tx,.car:focus-within .sl .tx{animation:none;opacity:1;visibility:visible}
+.cb{position:absolute;top:50%;translate:0 -50%;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:22px;line-height:1;z-index:2}.cb:hover{background:var(--red)}
+.dt{position:absolute;right:16px;bottom:14px;display:flex;gap:8px;align-items:center;z-index:2}
+.dt button[data-i]{width:10px;height:10px;border-radius:99px;border:0;background:rgba(255,255,255,.55);padding:0;transition:width .2s}.dt button[aria-current]{background:var(--yel);width:26px}
+.pp{background:rgba(0,0,0,.5);border:0;border-radius:99px;color:#fff;font-size:12px;padding:3px 10px}
+@media(max-width:640px){.car{aspect-ratio:16/9;height:auto}.ph{grid-template-columns:1fr 92px;padding:18px 18px 40px}.ph .ar{width:92px}.cb{display:none}}
+.pic{width:100%;height:100%;object-fit:cover;display:block}.av .pic{transform:scale(2.4);transform-origin:48% 30%}.card.lock .art .pic,.big.lock .pic{filter:brightness(.18) saturate(0)}
+.card .art svg,.big svg{width:100%;height:100%;display:block}
+.card.lock .art svg{filter:brightness(.18) saturate(0) contrast(1.2)}
+.card.lock .art::after{content:"Undiscovered";position:absolute;inset:0;display:grid;place-items:center;font:700 14px var(--d);color:#d3c6ad;letter-spacing:.04em}
+.card .meta{padding:12px 14px 14px;display:grid;gap:8px}.card h3{font-size:17px}
+.badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;border:1px solid var(--rc);color:var(--rc);width:fit-content}
+.bar{height:6px;background:var(--s2);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--red),var(--yel));border-radius:9px;transition:width .5s}
+.row{display:flex;justify-content:space-between;font-size:13px;color:var(--mute)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.btn{background:var(--red);border:0;border-radius:11px;padding:11px 18px;font-weight:600;color:#fff;transition:filter .15s,transform .1s}
+.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.98)}.btn.alt{background:var(--s2);border:1px solid var(--line);color:var(--cream)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text]{background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%}
+.act{display:grid;gap:10px;margin:0;padding:0;list-style:none;font-size:14px}.act li{display:flex;gap:10px;color:var(--mute)}.act li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--yel);margin-top:7px;flex:none}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}.filters input{max-width:280px}
+.chip{background:var(--s1);border:1px solid var(--line);border-radius:99px;padding:7px 14px;font-size:14px}.chip[aria-pressed=true]{background:var(--yel);color:#1a1405;border-color:var(--yel);font-weight:600}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:32px}
+.big{aspect-ratio:1;border-radius:24px;overflow:hidden;border:2px solid var(--rc);box-shadow:0 0 60px -20px var(--rc);max-width:520px;width:100%}
+.big.lock svg{filter:brightness(.18) saturate(0)}
+.traits{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.traits span{background:var(--s2);border-radius:8px;padding:4px 11px;font-size:14px}
+.back{background:none;border:0;color:var(--mute);padding:0 0 14px}.back:hover{color:var(--acc)}
+.redeem{max-width:560px}.fb{margin-top:12px;padding:11px 14px;border-radius:10px;font-size:14px}
+.fb.ok{background:var(--okbg);border:1px solid var(--okbd)}.fb.err{background:var(--erbg);border:1px solid var(--red)}
+.modal{position:fixed;inset:0;background:rgba(8,6,4,.88);display:grid;place-items:center;z-index:50;padding:20px}
+.rv{text-align:center;max-width:360px;width:100%}.rv .big{margin:0 auto 18px;animation:pop .9s cubic-bezier(.2,1.4,.4,1)}
+.rv::before{content:"";position:absolute;width:380px;height:380px;left:50%;top:50%;translate:-50% -60%;background:conic-gradient(from 0deg,transparent,var(--yel),transparent 30%,var(--red),transparent 60%);filter:blur(60px);opacity:.35;animation:spin 6s linear infinite;z-index:-1}
+@keyframes pop{0%{transform:scale(.3) rotateY(90deg);opacity:0}100%{transform:none;opacity:1}}@keyframes spin{to{rotate:360deg}}
+.chat{display:grid;grid-template-rows:auto 1fr auto;height:calc(100vh - 150px);min-height:420px;border:1px solid var(--line);border-radius:18px;background:var(--s1);overflow:hidden}
+.chat header{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.av{width:46px;height:46px;border-radius:50%;overflow:hidden;flex:none;border:2px solid var(--rc)}.av svg{width:100%;height:100%}
+.log{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:min(78%,520px);padding:10px 14px;border-radius:14px;animation:in .25s}.m.me{align-self:flex-end;background:var(--red);border-bottom-right-radius:4px}.m.bot{background:var(--s2);border-bottom-left-radius:4px;border-left:3px solid var(--rc)}
+@keyframes in{from{opacity:0;transform:translateY(6px)}}
+.dots span{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:var(--mute);animation:b 1s infinite}.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}@keyframes b{50%{transform:translateY(-4px)}}
+.chat form{display:grid;gap:10px;padding:12px 16px;border-top:1px solid var(--line)}.send{display:flex;gap:10px}
+.sug{display:flex;gap:8px;flex-wrap:wrap}.sug button{background:none;border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:13px;color:var(--mute)}.sug button:hover{color:var(--acc);border-color:var(--acc)}
+.tag{font-size:12px;color:var(--acc);border:1px dashed var(--acc);border-radius:6px;padding:1px 8px}
+.ms{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.mi{display:flex;gap:14px;align-items:center}.ck{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;flex:none;font-weight:800}
+.mi.done .ck{background:var(--yel);border-color:var(--yel);color:#1a1405}.mi.done h3{text-decoration:line-through;text-decoration-color:var(--mute)}
+.bg{text-align:center;padding:18px 10px}.bg .hx{width:62px;height:62px;margin:0 auto 10px;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:var(--s2);display:grid;place-items:center;font:800 22px var(--d);color:var(--mute)}
+.bg.on .hx{background:linear-gradient(135deg,var(--yel),var(--red));color:#1a1405}.bg:not(.on){opacity:.6}
+.tabs{display:none}
+@media(max-width:860px){
+.app{grid-template-columns:1fr}
+nav{position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;flex-direction:row;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border:0;border-top:1px solid var(--line);z-index:20;justify-content:space-around}
+nav .logo,nav .note{display:none}nav button{flex-direction:column;gap:2px;font-size:11px;padding:6px 4px;flex:1;align-items:center;text-align:center}
+nav button[aria-current=page]{box-shadow:inset 0 3px var(--red)}
+main{padding-bottom:96px}.hero,.detail,.two{grid-template-columns:1fr}.chat{height:calc(100vh - 230px)}
+.logo.mlogo{display:flex}
+}
+.mlogo{display:none;margin-bottom:6px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class="app"><nav aria-label="Main" id="nav"></nav><main id="main" tabindex="-1"></main></div>
+<div id="modal"></div>
+<script src="assets/assets.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const A=window.IV_ASSETS||{};
+let LOGOH=`<img src="${A.logo||''}" alt="Indomie"><span>VERSE</span>`;
+const RC={Common:'#9a8860',Rare:'#4ea1e8',Epic:'#b36bf0',Legendary:'#f5b81c'};
+const CH=[
+{id:'original',name:'Original',role:'The Loyal Companion',rarity:'Common',c1:'#f5b81c',c2:'#3a2a0c',bowl:'#f5ead3',traits:['Friendly','Humorous','Warm','Approachable'],
+lore:'Original was the first spark of the Indomieverse, born from a midnight kitchen and a pot that never quite boiled over. Whenever someone feels alone at the table, Original shows up with a joke and a spare pair of chopsticks.',
+deco:'<circle cx="100" cy="80" r="46" fill="#f5b81c" opacity=".35"/><circle cx="100" cy="80" r="28" fill="#f5b81c" opacity=".5"/>',brow:'<path d="M70 126q10-6 20 0M110 126q10-6 20 0" stroke="#2a1d08" stroke-width="3" fill="none" stroke-linecap="round"/>',
+sug:['Tell me a joke','What should I cook tonight?','I had a rough day'],
+rules:[[/joke|funny|laugh/,'Why did the noodle blush? It saw the sauce packet undressing. I will be here all week, just like leftovers.'],[/cook|eat|hungry|tonight|recipe|food/,'Soft egg on top, a handful of crushed chips on the side, and a squeeze of lime. Trust me, comfort has a recipe.'],[/sad|rough|tired|bad|lonely/,'Come sit. Nothing fixes everything, but a warm bowl and a friend who listens gets close. Tell me about it.']],
+dflt:['Haha, I like the way you think. Tell me more!','You always bring the good stuff to the table. What else is on your mind?']},
+{id:'pedas',name:'Agent Pedas',role:'The Fiery Challenger',rarity:'Rare',c1:'#ff5a1f',c2:'#3a0d0a',bowl:'#d9322a',traits:['Bold','Competitive','Outspoken','Playful'],
+lore:'Agent Pedas keeps a ranking of everyone brave enough to ask for extra chili. Nobody has beaten the top score, and the agent is still waiting for a worthy rival to walk through the door.',
+deco:'<path d="M100 20c18 24 34 34 34 58a34 34 0 0 1-68 0c0-14 8-20 14-34 4 10 10 14 14 16 0-14-2-26 6-40z" fill="#ff5a1f" opacity=".7"/>',brow:'<path d="M66 124l26 8M134 124l-26 8" stroke="#1a0604" stroke-width="4" fill="none" stroke-linecap="round"/>',
+sug:['Challenge me','How spicy is too spicy?','Rate my courage'],
+rules:[[/challenge|dare|bet|fight/,'Challenge accepted. Three bites, zero water, and you tell me your name out loud. Ready, rookie?'],[/spic|chili|hot|pedas/,'Too spicy is just a story you tell after you finish the bowl. Add one more chili and report back.'],[/rate|courage|brave|scared/,'Courage score: 6 out of 10. Ten if you finish the challenge without blinking.']],
+dflt:['Is that all you have got? Hit me with something bolder!','Not bad. Now say it like you mean it.']},
+{id:'nusantara',name:'Nusantara',role:'The Taste Explorer',rarity:'Epic',c1:'#1fa38a',c2:'#0e2a2c',bowl:'#e8b04a',traits:['Curious','Knowledgeable','Adventurous','Welcoming'],
+lore:'Nusantara has crossed thousands of islands with a notebook of flavours. Each page holds a tiny kitchen story, from smoky sambal in Manado to sweet soy on a Javanese street corner.',
+deco:'<g fill="#1fa38a" opacity=".6"><ellipse cx="46" cy="64" rx="22" ry="9"/><ellipse cx="108" cy="46" rx="30" ry="11"/><ellipse cx="160" cy="72" rx="18" ry="8"/></g><path d="M0 100q25-12 50 0t50 0 50 0 50 0" stroke="#e8b04a" stroke-width="3" fill="none" opacity=".6"/>',brow:'<path d="M70 126q10-8 20 0M110 126q10-8 20 0" stroke="#2a1d08" stroke-width="3" fill="none" stroke-linecap="round"/>',
+sug:['Tell me a regional food story','Which island has the best sambal?','Where should I explore next?'],
+rules:[[/story|region|tradition/,'In Medan, a bowl often meets a fried egg and a spoonful of sweet-spicy sambal. Every street has a family recipe it swears is the original.'],[/sambal|island|spic|best/,'Ask ten cooks and you will get ten answers. I lean towards Manado dabu-dabu for its fresh, bright heat.'],[/explor|next|where|travel/,'Start with Sumatra for bold spices, hop to Java for sweet soy, then finish in Sulawesi for fresh chili. Shall I pack your bowl?']],
+dflt:['What a good question! Every region answers it differently. Want a story?','I have a page in my notebook about exactly that. Ask me about a region.']},
+{id:'secret',name:'Secret Recipe',role:'The Mysterious Collector',rarity:'Legendary',c1:'#c29a4b',c2:'#0d0c0a',bowl:'#2a2622',traits:['Intelligent','Mysterious','Secretive','Patient'],
+lore:'Nobody knows when Secret Recipe first appeared in the Indomieverse. The collector keeps sealed jars of lost flavours and rewards only those who solve the riddles on the labels.',
+deco:'<path d="M30 80q70-60 140 0q-70 60-140 0z" fill="none" stroke="#c29a4b" stroke-width="2.5"/><circle cx="100" cy="80" r="16" fill="none" stroke="#c29a4b" stroke-width="2.5"/><circle cx="100" cy="80" r="5" fill="#c29a4b"/>',brow:'<path d="M70 132q10-4 20 0M110 132q10-4 20 0" stroke="#c29a4b" stroke-width="3" fill="none" stroke-linecap="round"/>',
+sug:['Give me a riddle','What is in the jars?','Set me a mission'],
+rules:[[/riddle|puzzle/,'I am long, I am curled, I rest in hot water, and I am sealed in a packet. What am I? Answer wisely.'],[/jar|secret|hidden|inside/,'Some jars hold flavours that no longer exist. I will not tell you which. Earn the key first.'],[/mission|quest|task/,'Your mission: open the profiles of every character before the day ends. Collectors notice what others overlook.']],
+dflt:['Interesting. But you have not asked the right question yet.','Hmm. I will answer when you have earned it.']}];
+const CODES={'NOODLE-NUSA-2026':'nusantara','MYSTERY-GOLD-77':'secret','PEDAS-BOOST-10':'pedas','ORIGINAL-WARM-01':'original'};
+const LV={original:[4,62],pedas:[2,30],nusantara:[0,0],secret:[0,0]};
+const S={view:'home',sel:'original',own:{original:1,pedas:1},lv:{...LV},used:[],log:['Agent Pedas reached level 2','Original joined your collection'],msgs:{},f:{},q:'',rar:'All',fb:null,typing:false,code:''};
+const by=id=>CH.find(c=>c.id===id),owned=c=>!!S.own[c.id];
+function art(c){if(RES[c.id])return `<img class="pic" src="${RES[c.id]}" alt="${c.name} artwork">`;return `<svg viewBox="0 0 200 200" role="img" aria-label="${c.name} artwork"><defs><radialGradient id="g${c.id}" cx=".5" cy=".4" r=".75"><stop offset="0" stop-color="${c.c1}" stop-opacity=".5"/><stop offset="1" stop-color="${c.c2}"/></radialGradient></defs><rect width="200" height="200" fill="url(#g${c.id})"/>${c.deco}<path d="M34 118h132a66 56 0 0 1-132 0z" fill="${c.bowl}"/><path d="M48 116c10-26 18 20 28 0s18 20 28 0 18 20 28 0 14 12 20 0" stroke="${c.c1}" fill="none" stroke-width="8" stroke-linecap="round"/><circle cx="80" cy="144" r="5" fill="#1a1208"/><circle cx="120" cy="144" r="5" fill="#1a1208"/><path d="M90 158q10 8 20 0" stroke="#1a1208" stroke-width="3" fill="none" stroke-linecap="round"/><g transform="translate(0 18)">${c.brow}</g></svg>`}
+const IC={home:'<path d="M4 11l8-7 8 7v9H4z"/>',collection:'<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',redeem:'<path d="M4 8h16v4H4zM6 12v8h12v-8M12 8v12M12 8c-3 0-4-4-1-4s1 4 1 4zm0 0c3 0 4-4 1-4"/>',chat:'<path d="M4 5h16v11H9l-5 4z"/>',missions:'<path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.9L12 16.4 6.8 19.2l1-5.9L3.5 9.2l5.9-.9z"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'};
+const NAV=[['home','Home'],['collection','Collection'],['redeem','Redeem'],['chat','Chat'],['missions','Missions']];
+const cnt=()=>Object.keys(S.own).length;
+const bar=c=>`<div class="bar" role="progressbar" aria-valuenow="${S.lv[c.id][1]}" aria-valuemin="0" aria-valuemax="100" aria-label="Level progress"><i style="width:${S.lv[c.id][1]}%"></i></div>`;
+const rcs=c=>`style="--rc:${RC[c.rarity]}"`;
+function card(c){const o=owned(c);return `<button class="card ${o?'':'lock'}" ${rcs(c)} data-act="open" data-id="${c.id}" aria-label="${o?c.name+', '+c.rarity+', level '+S.lv[c.id][0]:'Undiscovered character, '+c.rarity}"><div class="art">${art(c)}</div><div class="meta"><h3>${o?c.name:'???'}</h3><span class="badge">${c.rarity}</span>${o?bar(c)+`<div class="row"><span>Level ${S.lv[c.id][0]}</span><span>Collected</span></div>`:'<div class="row"><span>Locked</span><span>Redeem a code</span></div>'}</div></button>`}
+function missions(){const n=cnt();return[['Say hello','Send a message to any character',S.f.chat],['Redeem a code','Unlock or boost a character',S.f.redeem],['Collect 3 characters','Reach a collection of 3',n>=3],['Discover someone new','Open an undiscovered character profile',S.f.disc],['Read a backstory','Open Read lore on a character profile',S.f.lore]]}
+function badges(){const n=cnt();return[['1','First spark',n>=1],['3','Trio',n>=3],['4','Full universe',n>=4],['C','Chatterbox',S.f.chat],['L','Lore keeper',S.f.lore]]}
+const V={
+home(){const f=by('pedas');const m=missions();const d=m.filter(x=>x[2]).length;return `<div class="logo mlogo">${LOGOH}</div>${carousel()}
+<section class="hero"><div><h1>Collect the characters behind every bowl.</h1><p>Welcome back, collector. Redeem codes, unlock personalities and chat with the crew. This is a concept prototype, not an official Indomie product.</p>
+<div class="stats"><div class="ring" style="--p:${cnt()/4*100}"><span>${cnt()}/4</span></div><div><strong>Collection progress</strong><br><span style="color:var(--mute)">${cnt()} of 4 characters collected</span><br><button class="btn" style="margin-top:10px" data-act="go" data-v="redeem">Redeem a code</button></div></div>
+<div class="panel"><strong>Recent activity</strong><ul class="act" style="margin-top:10px">${S.log.slice(0,3).map(l=>`<li>${l}</li>`).join('')}</ul></div></div>
+<div><button class="feat" ${rcs(f)} data-act="open" data-id="pedas" aria-label="Featured character: Agent Pedas"><div class="art">${art(f)}</div><div class="cap"><small>Featured this week</small><h3>${f.name}</h3><small>${f.role}</small></div></button></div></section>
+<section class="two"><div class="panel"><strong>Daily missions</strong><div class="row" style="margin:8px 0"><span>${d} of ${m.length} complete</span></div><div class="bar"><i style="width:${d/m.length*100}%"></i></div><button class="btn alt" style="margin-top:14px" data-act="go" data-v="missions">View missions</button></div>
+<div class="panel"><strong>Quick redeem</strong><p style="color:var(--mute);font-size:14px;margin:6px 0 10px">Try NOODLE-NUSA-2026 or MYSTERY-GOLD-77.</p><div class="send"><input type="text" id="qc" placeholder="Enter product code" aria-label="Product code"><button class="btn" data-act="qr">Go</button></div></div></section>
+<div class="sec"><h2>Your universe</h2><button class="btn alt" data-act="go" data-v="collection">Open collection</button></div><div class="grid">${CH.map(card).join('')}</div>`},
+collection(){const l=CH.filter(c=>(S.rar==='All'||c.rarity===S.rar)&&(!S.q||(owned(c)?c.name:'').toLowerCase().includes(S.q)||c.role.toLowerCase().includes(S.q)&&owned(c)));
+return `<div class="sec"><h2>Character collection</h2><span style="color:var(--mute)">${cnt()} of 4 collected (${cnt()*25}%)</span></div><div class="bar" style="margin-bottom:18px"><i style="width:${cnt()*25}%"></i></div>
+<div class="filters"><input type="text" id="sq" value="${S.q}" placeholder="Search collected characters" aria-label="Search characters">${['All',...Object.keys(RC)].map(r=>`<button class="chip" aria-pressed="${S.rar===r}" data-act="rar" data-r="${r}">${r}</button>`).join('')}</div>
+${l.length?`<div class="grid">${l.map(card).join('')}</div>`:'<div class="panel">No characters match. Clear the search or choose another rarity.</div>'}`},
+detail(){const c=by(S.sel),o=owned(c);return `<button class="back" data-act="go" data-v="collection">Back to collection</button><div class="detail" ${rcs(c)}><div class="big ${o?'':'lock'}">${art(c)}</div><div>
+<span class="badge">${c.rarity}</span><h1 style="font-size:clamp(32px,5vw,52px);margin:10px 0 4px">${o?c.name:'Undiscovered'}</h1><div style="color:var(--mute)">${o?c.role:'Redeem a code to reveal this character.'}</div>
+${o?`<div class="traits">${c.traits.map(t=>`<span>${t}</span>`).join('')}</div><div class="row" style="margin-top:14px"><span>Level ${S.lv[c.id][0]}</span><span>${S.lv[c.id][1]}/100 XP</span></div>${bar(c)}
+<h3 style="margin:22px 0 6px">Backstory</h3><p style="max-width:56ch">${c.lore}</p><div class="row" style="margin:12px 0"><span>Status: Collected</span></div>
+<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="talk" data-id="${c.id}">Talk to character</button><button class="btn alt" data-act="lore">Read lore</button><button class="btn alt" data-act="go" data-v="collection">View collection</button></div>`
+:`<p style="max-width:50ch">Status: Locked. The profile, traits and backstory are hidden until you redeem a matching code.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-act="go" data-v="redeem">Redeem a code</button><button class="btn alt" disabled>Talk to character</button></div>`}</div></div>`},
+redeem(){return `<div class="redeem"><h1 style="font-size:36px">Redeem a product code</h1><p style="color:var(--mute)">Codes would be printed inside participating packs. In this prototype, codes are checked locally and cannot be verified against any real product. Try NOODLE-NUSA-2026, MYSTERY-GOLD-77, PEDAS-BOOST-10 or ORIGINAL-WARM-01.</p>
+<div class="send" style="margin-top:18px"><input type="text" id="rc" value="${S.code}" placeholder="XXXX-XXXX-0000" aria-label="Product code" autocomplete="off" aria-describedby="fb"><button class="btn" data-act="redeem">Redeem</button></div>
+<div id="fb" role="status">${S.fb?`<div class="fb ${S.fb[0]}">${S.fb[1]}</div>`:''}</div></div>`},
+chat(){const c=by(S.sel),o=owned(c);const ms=S.msgs[c.id]||(S.msgs[c.id]=[]);
+return `<div class="chat" ${rcs(c)}><header><div class="av">${art(c)}</div><div style="flex:1"><strong>${c.name}</strong><div style="font-size:13px;color:var(--mute)">${o?'Available (prototype state)':'Locked'}</div></div><span class="tag">Simulated replies, no AI service</span></header>
+<div class="log" id="log" aria-live="polite">${o?(ms.length?'':`<div class="m bot">${c.role}. Say hello, or pick a prompt below.</div>`)+ms.map(m=>`<div class="m ${m[0]}">${m[1]}</div>`).join('')+(S.typing?'<div class="m bot dots" aria-label="Typing"><span></span><span></span><span></span></div>':''):'<div class="m bot">This character is locked. Redeem a code to start chatting.</div>'}</div>
+<form id="cf"><div class="sug">${c.sug.map(s=>`<button type="button" data-act="sug" data-t="${s}" ${o?'':'disabled'}>${s}</button>`).join('')}</div><div class="send"><input type="text" id="ci" placeholder="${o?'Message '+c.name:'Locked'}" aria-label="Message" ${o?'':'disabled'} autocomplete="off"><button class="btn" ${o?'':'disabled'}>Send</button></div></form></div>
+<div class="filters" style="margin-top:14px">${CH.map(x=>`<button class="chip" aria-pressed="${x.id===S.sel}" data-act="pick" data-id="${x.id}">${owned(x)?x.name:'Locked'}</button>`).join('')}</div>`},
+missions(){const m=missions();return `<h1 style="font-size:36px;margin-bottom:6px">Missions</h1><p style="color:var(--mute);margin-top:0">Progress updates as you use the prototype.</p><div class="ms">${m.map(x=>`<div class="panel mi ${x[2]?'done':''}"><div class="ck">${x[2]?'✓':''}</div><div><h3 style="font-size:17px">${x[0]}</h3><div style="font-size:14px;color:var(--mute)">${x[1]}</div></div></div>`).join('')}</div>
+<div class="sec"><h2>Achievements</h2></div><div class="ms" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${badges().map(b=>`<div class="panel bg ${b[2]?'on':''}"><div class="hx">${b[0]}</div><strong style="font-size:14px">${b[1]}</strong><div style="font-size:12px;color:var(--mute)">${b[2]?'Earned':'Locked'}</div></div>`).join('')}</div>`}};
+function render(keep){const v=S.view;$('#nav').innerHTML=`<div class="logo">${LOGOH}</div>`+NAV.map(([k,l])=>`<button data-act="go" data-v="${k}" ${(v===k||(v==='detail'&&k==='collection'))?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>${l}</button>`).join('')+`<button data-act="theme"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[S.theme==='dark'?'sun':'moon']}</svg>${S.theme==='dark'?'Light mode':'Dark mode'}</button><div class="note">Concept prototype. Characters and features are fictional, not official Indomie products.<br>Data source: ${API.mode()}<br>Assets: ${window.IV_ASSETS?'assets.js loaded':'assets.js not loaded'}</div>`;
+$('#main').innerHTML=V[v]();if(v==='home')carPaint();const lg=$('#log');if(lg)lg.scrollTop=lg.scrollHeight;
+if(!keep){$('#main').focus({preventScroll:true});scrollTo(0,0)}}
+function reveal(c,dup){$('#modal').innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="Reward"><div class="rv" ${rcs(c)}><div class="big ${''}">${art(c)}</div><span class="badge">${c.rarity}</span><h2 style="font-size:30px;margin:8px 0">${dup?c.name+' gets stronger':c.name+' unlocked'}</h2><p style="color:var(--mute)">${dup?'+40 XP added.':c.role}</p><button class="btn" data-act="close" autofocus>Continue</button></div></div>`;$('.rv .btn').focus()}
+const CAR={i:0,paused:matchMedia('(prefers-reduced-motion:reduce)').matches,hold:false,muted:true};
+const ADS_CFG=(window.IV_ASSETS&&window.IV_ASSETS.ads)||null;
+function ads(){return ADS_CFG&&ADS_CFG.length?ADS_CFG:[
+{char:'original',title:'Goreng Original',cap:'Si teman setia. Always tastes like home.',g:'linear-gradient(120deg,#b3201a,#e8a317)'},
+{char:'pedas',title:'Agent Pedas',cap:'Berani naik level pedas? Tantangan dimulai.',g:'linear-gradient(120deg,#7a1410,#ff5a1f)'},
+{char:'nusantara',title:'Nusantara',cap:'Jelajahi rasa dari Sabang sampai Merauke.',g:'linear-gradient(120deg,#0e4a47,#1fa38a)'}]}
+function slide(a,i){const n=ads().length,on=i===CAR.i?' on':'',h=`class="sl${on}" role="group" aria-roledescription="slide" aria-label="${i+1} of ${n}"`;
+if(a.src)return `<div ${h}>${a.type==='video'?`<video src="${a.src}" poster="${a.poster||''}" muted playsinline preload="metadata"></video>`:`<img src="${a.src}" alt="${a.title||'Ad'}" onerror="altExt(this)">`}<div class="tx">${a.label?`<span class="tg">${a.label}</span>`:''}<h3>${a.title||''}</h3><small>${a.caption||''}</small>${a.cta&&a.go?`<div style="margin-top:10px"><button class="btn" data-act="go" data-v="${a.go}">${a.cta}</button></div>`:''}</div></div>`;
+const c=by(a.char||'original');return `<div ${h}><div class="ph" style="--g:${a.g}"><div><span class="tg">Sample slide, replace in assets.js</span><h3 style="font-size:clamp(26px,4.2vw,46px);margin:12px 0 6px">${a.title}</h3><p style="margin:0;max-width:40ch;color:#f6ead2">${a.cap}</p></div><div class="ar">${art(c)}</div></div></div>`}
+function carousel(){const a=ads();return `<section class="car" aria-roledescription="carousel" aria-label="Featured ads">${a.map(slide).join('')}<button class="cb" style="left:12px" data-act="cprev" aria-label="Previous slide">&lsaquo;</button><button class="cb" style="right:12px" data-act="cnext" aria-label="Next slide">&rsaquo;</button><div class="dt">${ads().some(a=>a.type==='video')?`<button class="pp" data-act="cmute" aria-label="Toggle sound">${CAR.muted?'Sound off':'Sound on'}</button>`:''}<button class="pp" data-act="cpp">${CAR.paused?'Play':'Pause'}</button>${a.map((_,i)=>`<button data-act="cgo" data-i="${i}" aria-label="Go to slide ${i+1}" ${i===CAR.i?'aria-current="true"':''}></button>`).join('')}</div></section>`}
+function carPaint(){document.querySelectorAll('.car .sl').forEach((e,i)=>{const on=i===CAR.i;e.classList.toggle('on',on);const v=e.querySelector('video');if(v){if(on){v.muted=CAR.muted;v.currentTime=0;v.play().catch(()=>{if(!CAR.muted){CAR.muted=true;v.muted=true;carMuteUI();v.play().catch(()=>{})}})}else v.pause()}});document.querySelectorAll('.car .dt button[data-i]').forEach((d,i)=>i===CAR.i?d.setAttribute('aria-current','true'):d.removeAttribute('aria-current'))}
+function carMuteUI(){document.querySelectorAll('[data-act=cmute]').forEach(b=>b.textContent=CAR.muted?'Sound off':'Sound on')}
+function carGo(d){const n=ads().length;CAR.i=(CAR.i+d+n)%n;carPaint()}
+setInterval(()=>{if(S.view!=='home'||CAR.paused||CAR.hold)return;if(document.querySelector('.car .sl.on video'))return;carGo(1)},5500);
+document.addEventListener('error',e=>{if(e.target.closest&&e.target.closest('.car video')&&ads().length>1)carGo(1)},true);
+document.addEventListener('ended',e=>{if(e.target.closest&&e.target.closest('.car')){if(ads().length>1)carGo(1);else{e.target.currentTime=0;e.target.play().catch(()=>{})}}},true);
+document.addEventListener('pointerover',e=>{CAR.hold=!!e.target.closest('.car')});document.addEventListener('focusin',e=>{CAR.hold=!!e.target.closest('.car')});
+const RES={},EXT=['png','jpg','jpeg','webp'];
+function probe(base,ok){base=base.replace(/\.(png|jpe?g|webp)$/i,'');(function t(i){if(i>=EXT.length)return;const im=new Image();im.onload=()=>ok(base+'.'+EXT[i]);im.onerror=()=>t(i+1);im.src=base+'.'+EXT[i]})(0)}
+function altExt(el){const b=el.getAttribute('src').replace(/\.\w+$/,''),i=+(el.dataset.t||0);if(i>=EXT.length)return;el.dataset.t=i+1;el.src=b+'.'+EXT[i]}
+function loadAssets(){const ch=A.characters||{};CH.forEach(c=>probe(ch[c.id]||'assets/characters/'+c.id,u=>{RES[c.id]=u;render(1)}));
+probe(A.logo||'assets/brand/indomie-logo',u=>{LOGOH=`<img src="${u}" alt="Indomie"><span>VERSE</span>`;render(1)})}
+/* ===== BACKEND BRIDGE =====
+Connect a server: INDOMIEVERSE_API.configure({baseUrl:'https://your-api.example.com',token:'JWT'})
+Without baseUrl, a local mock answers. Expected endpoints:
+POST /api/redeem  {code}                -> {ok:true,characterId,duplicate,progress:[level,xp]} | {ok:false,error}
+POST /api/chat    {characterId,message} -> {reply,progress?:[level,xp]}
+GET  /api/collection                    -> {owned:{characterId:[level,xp]},used:[codes]}  */
+function reply(c,t){const r=c.rules.find(x=>x[0].test(t.toLowerCase()));if(r)return r[1];return c.dflt[S.msgs[c.id].length%c.dflt.length]}
+const API={cfg:{baseUrl:'',token:''},
+configure(o){Object.assign(this.cfg,o);this.sync();render(1)},
+mode(){return this.cfg.baseUrl?'server':'local mock'},
+wait:ms=>new Promise(r=>setTimeout(r,ms)),
+async req(path,method,body){const c=this.cfg,ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),8000);
+try{const r=await fetch(c.baseUrl+path,{method,signal:ctl.signal,headers:{'Content-Type':'application/json',...(c.token?{Authorization:'Bearer '+c.token}:{})},body:body?JSON.stringify(body):undefined});
+if(r.status>=500)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(t)}},
+async redeem(code){if(this.cfg.baseUrl)return this.req('/api/redeem','POST',{code});await this.wait(350);
+const id=CODES[code];if(S.used.includes(code))return{ok:false,error:'This code was already redeemed in this session.'};if(!id)return{ok:false,error:'Code not recognised. Check for typos and try again.'};
+const dup=!!S.own[id];let[l,x]=S.lv[id];if(dup){x+=40;if(x>=100){x-=100;l++}}else{l=1;x=0}return{ok:true,characterId:id,duplicate:dup,progress:[l,x]}},
+async chat(id,message){if(this.cfg.baseUrl)return this.req('/api/chat','POST',{characterId:id,message});await this.wait(900);const[l,x]=S.lv[id];return{reply:reply(by(id),message),progress:[l,Math.min(99,x+5)]}},
+async sync(){if(!this.cfg.baseUrl)return;try{const r=await this.req('/api/collection','GET');Object.keys(S.own).forEach(k=>delete S.own[k]);for(const k in r.owned){S.own[k]=1;S.lv[k]=r.owned[k]}S.used=r.used||[];render(1)}catch(e){}}};
+window.INDOMIEVERSE_API=API;
+async function redeem(raw){const k=raw.trim().toUpperCase();S.code=k;
+if(!k)S.fb=['err','Enter a code first.'];else if(!/^[A-Z0-9]+(-[A-Z0-9]+)+$/.test(k))S.fb=['err','Codes use letters, numbers and dashes, like XXXX-XXXX-0000.'];
+else{S.fb=['ok','Checking code...'];render(1);let r;try{r=await API.redeem(k)}catch(e){r={ok:false,error:'Cannot reach the server. Check your connection and try again.'}}
+if(!r.ok)S.fb=['err',r.error||'Code could not be redeemed.'];
+else{const c=by(r.characterId);S.used.push(k);S.f.redeem=1;S.code='';S.own[c.id]=1;S.lv[c.id]=r.progress;S.log.unshift(r.duplicate?c.name+' gained 40 XP':c.name+' joined your collection');S.fb=['ok',r.duplicate?'Code accepted. Bonus XP added.':'Code accepted. New character unlocked.'];render(1);reveal(c,r.duplicate);return}}
+render(1);const i=$('#rc');i&&i.focus()}
+async function send(t){const c=by(S.sel);t=t.trim();if(!t||!owned(c)||S.typing)return;S.msgs[c.id].push(['me',t.replace(/</g,'&lt;')]);S.f.chat=1;S.typing=true;render(1);
+let r;try{r=await API.chat(c.id,t)}catch(e){r={reply:'Connection lost. Please send your message again.'}}
+S.typing=false;S.msgs[c.id].push(['bot',String(r.reply).replace(/</g,'&lt;')]);if(r.progress)S.lv[c.id]=r.progress;render(1);const i=$('#ci');i&&i.focus()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+if(a==='go'){S.view=b.dataset.v;S.fb=null;render()}
+else if(a==='open'){S.sel=b.dataset.id;if(!owned(by(S.sel)))S.f.disc=1;S.view='detail';render()}
+else if(a==='talk'){S.view='chat';render()}
+else if(a==='lore'){S.f.lore=1;b.textContent='Lore read';b.disabled=true}
+else if(a==='rar'){S.rar=b.dataset.r;render(1)}
+else if(a==='redeem')redeem($('#rc').value)
+else if(a==='qr'){S.code=$('#qc').value;S.view='redeem';S.fb=null;render();if(S.code)redeem(S.code)}
+else if(a==='close'){$('#modal').innerHTML='';}
+else if(a==='pick'){S.sel=b.dataset.id;render(1)}
+else if(a==='sug')send(b.dataset.t);else if(a==='cprev')carGo(-1);else if(a==='cnext')carGo(1);else if(a==='cgo'){CAR.i=+b.dataset.i;carPaint()}else if(a==='cpp'){CAR.paused=!CAR.paused;b.textContent=CAR.paused?'Play':'Pause';const v=document.querySelector('.car .sl.on video');if(v){if(CAR.paused)v.pause();else v.play().catch(()=>{})}}else if(a==='cmute'){CAR.muted=!CAR.muted;document.querySelectorAll('.car video').forEach(v=>v.muted=CAR.muted);carMuteUI();const v=document.querySelector('.car .sl.on video');if(v&&v.paused)v.play().catch(()=>{})}else if(a==='theme'){S.theme=S.theme==='dark'?'light':'dark';applyTheme();render(1)}});
+document.addEventListener('input',e=>{if(e.target.id==='sq'){S.q=e.target.value.toLowerCase();const p=e.target.selectionStart;render(1);const i=$('#sq');i.focus();i.setSelectionRange(p,p)}});
+document.addEventListener('submit',e=>{if(e.target.id==='cf'){e.preventDefault();const i=$('#ci');const t=i.value;send(t)}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='rc'){e.preventDefault();redeem(e.target.value)}if(e.key==='Enter'&&e.target.id==='qc'){e.preventDefault();e.target.nextElementSibling.click()}if(e.key==='Escape')$('#modal').innerHTML=''});
+/* ===== ACCOUNT + SUPABASE & SERVER AI ===== */
+Object.assign(S,{user:null,live:false,sess:{},sid:{},st:{},amode:'login',aerr:'',provider:'builtin',loaded:{},ai:null,sbStatus:''});
+NAV.push(['account','Account']);IC.account='<circle cx="12" cy="8" r="4"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/>';
+document.head.insertAdjacentHTML('beforeend','<style>.chat{height:calc(100vh - 380px)!important;min-height:340px}.sel{background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:10px;color:var(--cream);flex:1;min-width:0}.sb-box{background:var(--s2);border:1px dashed var(--line);border-radius:14px;padding:16px;margin-top:16px;display:grid;gap:10px}</style>');
+const esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const jq=async(p,m,b)=>{const r=await fetch(p,{method:m||'GET',credentials:'include',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});return r.json()};
+
+API.isSupabase=()=>!!window.sbClient;
+API.live=false;
+API.mode=()=>{
+  if(window.sbClient) return 'Supabase (' + (S.user ? S.user.email : 'ready') + ')';
+  return API.live ? 'server ('+S.provider+')' : 'local mock';
+};
+
+API.pull=async()=>{
+  if(window.sbClient && S.user){
+    try{
+      const {data:owned}=await window.sbClient.from('owned_characters').select('character_id,level,xp');
+      const {data:used}=await window.sbClient.from('used_codes').select('code');
+      if(owned){
+        Object.keys(S.own).forEach(k=>delete S.own[k]);
+        owned.forEach(r=>{S.own[r.character_id]=1;S.lv[r.character_id]=[r.level,r.xp]});
+      }
+      if(used) S.used=used.map(u=>u.code);
+      render(1);
+    }catch(e){console.error('[Supabase] pull error:',e)}
+    return;
+  }
+  const r=await jq('/api/collection');if(!r.ok)return;
+  Object.keys(S.own).forEach(k=>delete S.own[k]);
+  for(const k in r.owned){S.own[k]=1;S.lv[k]=r.owned[k]}
+  S.used=r.used;S.f=r.flags||{};
+};
+
+API.init=async()=>{
+  if(window.sbClient){
+    API.live=true;
+    try{
+      const {data:{session}}=await window.sbClient.auth.getSession();
+      if(session && session.user){
+        S.user={id:session.user.id,email:session.user.email,role:'user'};
+        const {data:prof}=await window.sbClient.from('profiles').select('role,flags').eq('id',session.user.id).single();
+        if(prof){S.user.role=prof.role||'user';S.f=prof.flags||{};}
+        const {data:sets}=await window.sbClient.from('system_settings').select('*');
+        if(sets){
+          S.ai={};
+          sets.forEach(x=>{S.ai[x.key]=x.value;if(x.key==='provider')S.provider=x.value;});
+        }
+        await API.pull();
+      }else{
+        S.user=null;
+      }
+      window.sbClient.auth.onAuthStateChange(async(evt,sess)=>{
+        if(sess && sess.user){
+          S.user={id:sess.user.id,email:sess.user.email,role:'user'};
+          const {data:p}=await window.sbClient.from('profiles').select('role,flags').eq('id',sess.user.id).single();
+          if(p){S.user.role=p.role||'user';S.f=p.flags||{};}
+          await API.pull();
+        }else if(evt==='SIGNED_OUT'){
+          S.user=null;S.own={original:1,pedas:1};S.lv={...LV};S.used=[];
+        }
+        render(1);
+      });
+    }catch(e){console.error('[Supabase] init error:',e)}
+    render(1);
+    return;
+  }
+  try{
+    const r=await jq('/api/auth/me');if(!r.ok)return;
+    API.live=true;S.provider=r.provider;S.user=r.authenticated?r.user:null;
+    if(S.user)await API.pull();else S.view='account';
+  }catch(e){}
+  render(1);
+};
+
+const _rd=API.redeem.bind(API);
+API.redeem=async code=>{
+  if(window.sbClient && S.user){
+    const {data,error}=await window.sbClient.rpc('redeem_code',{p_code:code});
+    if(error) return {ok:false,error:error.message};
+    return data;
+  }
+  return API.live&&S.user?jq('/api/redeem','POST',{code}):_rd(code);
+};
+
+let _fl='';
+setInterval(()=>{
+  const j=JSON.stringify(S.f);
+  if(S.user && j!==_fl){
+    _fl=j;
+    if(window.sbClient){
+      window.sbClient.rpc('update_user_flags',{p_flags:S.f}).catch(()=>{});
+    }else if(API.live){
+      jq('/api/progress','POST',{flags:S.f}).catch(()=>{});
+    }
+  }
+},4000);
+
+V.account=()=>{
+  const isSb=!!window.sbClient;
+  const cfgUrl=window.localStorage.getItem('iv_supabase_url')||(window.SUPABASE_CONFIG&&window.SUPABASE_CONFIG.url)||'';
+  const cfgKey=window.localStorage.getItem('iv_supabase_anon_key')||(window.SUPABASE_CONFIG&&window.SUPABASE_CONFIG.anonKey)||'';
+
+  const sbCard=`<div class="sb-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>⚡ Supabase Cloud Backend</strong>
+      <span class="tag" style="background:${isSb?'var(--okbg)':'var(--erbg)'};color:${isSb?'var(--okbd)':'var(--red)'};border-color:currentColor">
+        ${isSb?'Connected':'Not Connected'}
+      </span>
+    </div>
+    <p style="color:var(--mute);font-size:13px;margin:0">
+      ${isSb?'Connected to Supabase PostgreSQL database and Supabase Auth.':'Paste your Supabase Project URL and Anon API Key below to connect database & cloud auth.'}
+    </p>
+    <input type="text" id="sb_url" placeholder="https://xyzcompany.supabase.co" value="${esc(cfgUrl)}" aria-label="Supabase URL">
+    <input type="password" id="sb_key" placeholder="eyJhbGciOi... (Supabase Anon Key)" value="${esc(cfgKey)}" aria-label="Supabase Anon Key" style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%;color:var(--cream)">
+    <div style="display:flex;gap:10px">
+      <button class="btn" data-act="sbsave">Connect Supabase</button>
+      ${isSb?`<button class="btn alt" data-act="sbreset">Disconnect</button>`:''}
+    </div>
+  </div>`;
+
+  if(S.user){
+    const a=S.user.role==='admin',x=S.ai||{};
+    if(a&&!S.ai&&!window.sbClient)jq('/api/admin/ai-settings').then(r=>{if(r.ok){S.ai=r;render(1)}});
+    return `<div class="redeem"><h1 style="font-size:36px">Account</h1><p style="color:var(--mute)">${esc(S.user.email)}${a?' (admin)':''}</p><button class="btn" data-act="logout">Log out</button>
+    ${sbCard}
+    ${a?`<div class="panel" style="margin-top:24px;display:grid;gap:10px"><strong>AI provider (admin)</strong><select class="sel" id="ap1" aria-label="Provider">${['builtin','lmstudio','gemini'].map(p=>`<option ${x.provider===p?'selected':''}>${p}</option>`).join('')}</select><input type="text" id="ap2" placeholder="LM Studio URL" value="${esc(x.lm_url||x.lmUrl||'')}"><input type="text" id="ap3" placeholder="LM Studio model" value="${esc(x.lm_model||x.lmModel||'')}"><input type="text" id="ap4" placeholder="Gemini model" value="${esc(x.gm_model||x.gmModel||'')}"><input type="text" id="ap5" placeholder="${(x.gm_key||x.hasKey)?'Gemini key saved (leave blank to keep)':'Gemini API key'}" autocomplete="off"><button class="btn" data-act="aisave">Save settings</button><div id="aimsg" role="status" style="font-size:14px;color:var(--mute)"></div></div>`:''}</div>`;
+  }
+
+  const lg=S.amode==='login';
+  return `<div class="redeem"><h1 style="font-size:36px">${lg?'Log in':'Create account'}</h1>
+  <p style="color:var(--mute)">${API.live?'Save your collection and chat history to your account.':'Account features need Supabase or local server.'}</p>
+  <div style="display:grid;gap:10px;margin-top:16px">
+    <input type="text" id="ae" placeholder="Email" autocomplete="email" aria-label="Email">
+    <input type="password" id="apw" placeholder="Password (min 6 characters)" autocomplete="${lg?'current-password':'new-password'}" aria-label="Password" style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%;color:var(--cream)">
+    <button class="btn" data-act="auth" ${API.live?'':'disabled'}>${lg?'Log in':'Register'}</button>
+    <button class="btn alt" data-act="amode">${lg?'No account? Register':'Have an account? Log in'}</button>
+    <button class="btn alt" data-act="guest">Continue as guest</button>
+  </div>
+  ${S.aerr?`<div class="fb err" role="alert" style="margin-top:12px">${esc(S.aerr)}</div>`:''}
+  ${sbCard}
+  </div>`;
+};
+
+const _chat=V.chat;
+V.chat=()=>{
+  const c=by(S.sel),o=owned(c),st=S.st[c.id];let h=_chat();
+  h=h.replace('Simulated replies, no AI service',API.live?'AI: '+S.provider+(S.provider==='builtin'?' (scripted)':''):'Simulated replies, no AI service');
+  if(API.live&&S.user&&o&&!S.loaded[c.id+':'+(S.sid[c.id]||'')])setTimeout(()=>loadState(c),0);
+  const ss=S.sess[c.id]||[];
+  return `<div class="panel" style="margin-bottom:12px;display:grid;gap:10px">${S.user?`<div class="send"><select class="sel" id="ss" aria-label="Chat session">${ss.map(x=>`<option value="${x.id}" ${x.id==S.sid[c.id]?'selected':''}>${esc(x.title)}</option>`).join('')}</select><button class="btn alt" data-act="snew" ${o?'':'disabled'}>New chat</button><button class="btn alt" data-act="sdel" ${o&&ss.length?'':'disabled'}>Delete</button></div>`:`<div style="color:var(--mute);font-size:14px">${API.live?'Guest mode: this chat is not saved. Log in to keep history and bond stats.':'Local demo: replies are scripted and nothing is saved.'}</div>`}
+  ${st?['affinity','trust','bond'].map(k=>`<div class="row"><span style="text-transform:capitalize">${k}</span><span>${st[k]}</span></div><div class="bar"><i style="width:${st[k]}%"></i></div>`).join('')+`<div class="row"><span>Mood: ${st.mood}</span><span>${st.stage}</span></div>`:''}</div>`+h;
+};
+
+const setSt=(c,r)=>{
+  S.sid[c.id]=r.sessionId;
+  S.sess[c.id]=r.sessions||[];
+  S.st[c.id]=r.stats||{};
+  S.msgs[c.id]=(r.messages||[]).map(m=>[m.sender==='user'?'me':'bot',esc(m.text),m.id]);
+  S.loaded[c.id+':'+r.sessionId]=1;
+  render(1);
+};
+
+async function loadState(c){
+  if(window.sbClient && S.user){
+    const {data}=await window.sbClient.rpc('get_chat_state',{p_character_id:c.id,p_session_id:S.sid[c.id]||null});
+    if(data && data.ok) setSt(c,data);
+    return;
+  }
+  const r=await jq('/api/state?character='+c.id+(S.sid[c.id]?'&session_id='+S.sid[c.id]:''));
+  if(r.ok)setSt(c,r);
+}
+
+async function send(t){
+  const c=by(S.sel);t=t.trim();if(!t||!owned(c)||S.typing)return;
+  const ms=S.msgs[c.id]=S.msgs[c.id]||[];
+  const hist=ms.slice(-12).map(m=>({role:m[0]==='me'?'user':'assistant',content:m[1]}));
+  ms.push(['me',esc(t)]);
+  S.f.chat=1;
+  S.typing=true;
+  render(1);
+
+  try{
+    if(window.sbClient && S.user){
+      let botReply=reply(c,t);
+      if(S.provider==='gemini' && S.ai && S.ai.gm_key){
+        try{
+          const sysm="You are "+c.name+", a collectible character in INDOMIEVERSE. Traits: "+c.traits.join(', ')+". Lore: "+c.lore+". Reply in Indonesian in 1-3 short friendly sentences.";
+          const contents=hist.map(h=>({role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]})).concat([{role:'user',parts:[{text:t}]}]);
+          const gmRes=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.ai.gm_model||'gemini-2.5-flash'}:generateContent?key=${S.ai.gm_key}`,{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({contents,systemInstruction:{parts:[{text:sysm}]},generationConfig:{temperature:0.85,maxOutputTokens:300}})
+          });
+          const gmData=await gmRes.json();
+          if(gmData.candidates&&gmData.candidates[0].content.parts[0].text){
+            botReply=gmData.candidates[0].content.parts[0].text.trim();
+          }
+        }catch(ge){console.warn('Gemini direct error, using fallback:',ge);}
+      }
+      const neg=/bodoh|bego|stupid|idiot|benci|hate|jelek|sampah|diam|shut up/i.test(t);
+      const pos=/terima kasih|makasih|thanks|thank you|suka|love|keren|hebat|enak|sayang|tolong|please/i.test(t);
+      const d=neg?[-6,-8,-5]:(pos?[3,2,2]:[1,1,1]);
+      const {data,error}=await window.sbClient.rpc('save_chat_turn',{
+        p_character_id:c.id,
+        p_session_id:S.sid[c.id]||null,
+        p_user_message:t,
+        p_bot_reply:botReply,
+        p_affinity_delta:d
+      });
+      if(error) throw error;
+      if(data.stats) S.st[c.id]=data.stats;
+      if(data.sessionId) S.sid[c.id]=data.sessionId;
+      if(data.progress) S.lv[c.id]=data.progress;
+      ms.push(['bot',esc(botReply)]);
+    } else if(API.live){
+      const r=await jq('/api/chat','POST',{characterId:c.id,message:t,sessionId:S.user?S.sid[c.id]:null,history:hist});
+      if(!r.ok)throw 0;
+      S.provider=r.provider;
+      if(r.stats)S.st[c.id]=r.stats;
+      if(r.sessionId)S.sid[c.id]=r.sessionId;
+      if(r.progress)S.lv[c.id]=r.progress;
+      ms.push(['bot',esc(r.reply)]);
+    } else {
+      const x=await API.chat(c.id,t);
+      ms.push(['bot',esc(x.reply)]);
+      S.lv[c.id]=x.progress;
+    }
+  }catch(e){
+    console.error('Chat error:',e);
+    ms.push(['bot','Connection lost. Please send your message again.']);
+  }
+  S.typing=false;
+  render(1);
+  const i=$('#ci');i&&i.focus();
+}
+
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act,c=by(S.sel);
+
+  if(a==='amode'){S.amode=S.amode==='login'?'register':'login';S.aerr='';render(1);}
+  else if(a==='guest'){S.view='home';render();}
+  else if(a==='sbsave'){
+    const u=$('#sb_url').value.trim();
+    const k=$('#sb_key').value.trim();
+    if(!u||!k){alert('Please fill in both Supabase URL and Anon Key.');return;}
+    localStorage.setItem('iv_supabase_url',u);
+    localStorage.setItem('iv_supabase_anon_key',k);
+    if(window.supabase && window.supabase.createClient){
+      window.sbClient=window.supabase.createClient(u,k);
+      alert('Supabase connected successfully!');
+      API.init();
+    }else{
+      location.reload();
+    }
+  }
+  else if(a==='sbreset'){
+    localStorage.removeItem('iv_supabase_url');
+    localStorage.removeItem('iv_supabase_anon_key');
+    window.sbClient=null;
+    location.reload();
+  }
+  else if(a==='auth'){
+    const email=$('#ae').value.trim(),password=$('#apw').value;
+    if(window.sbClient){
+      const isReg=S.amode==='register';
+      const res=isReg
+        ? await window.sbClient.auth.signUp({email,password})
+        : await window.sbClient.auth.signInWithPassword({email,password});
+      if(res.error){
+        S.aerr=res.error.message;
+        return render(1);
+      }
+      if(isReg && res.data.user && !res.data.session){
+        S.aerr='Registration successful! If confirmation is enabled in Supabase, please verify your email first.';
+        return render(1);
+      }
+      S.user={id:res.data.user.id,email:res.data.user.email,role:'user'};
+      S.aerr='';S.msgs={};S.sid={};S.sess={};S.st={};S.loaded={};
+      await API.pull();
+      S.view='home';
+      render();
+      return;
+    }
+    const r=await jq('/api/auth/'+(S.amode==='login'?'login':'register'),'POST',{email,password});
+    if(!r.ok){S.aerr=r.error||'Failed';return render(1);}
+    S.user=r.user;S.aerr='';S.msgs={};S.sid={};S.sess={};S.st={};S.loaded={};S.ai=null;
+    await API.pull();S.view='home';render();
+  }
+  else if(a==='logout'){
+    if(window.sbClient){
+      await window.sbClient.auth.signOut();
+    }else{
+      await jq('/api/auth/logout','POST',{});
+    }
+    S.user=null;S.ai=null;S.own={original:1,pedas:1};S.lv={...LV};S.used=[];S.f={};S.msgs={};S.sid={};S.sess={};S.st={};S.loaded={};S.view='account';render();
+  }
+  else if(a==='snew'){
+    if(window.sbClient && S.user){
+      const {data}=await window.sbClient.rpc('new_chat_session',{p_character_id:c.id});
+      if(data && data.ok) setSt(c,data);
+    }else{
+      const r=await jq('/api/session/new','POST',{character:c.id});if(r.ok)setSt(c,r);
+    }
+  }
+  else if(a==='sdel'&&confirm('Delete this chat?')){
+    if(window.sbClient && S.user){
+      const {data}=await window.sbClient.rpc('delete_chat_session',{p_session_id:S.sid[c.id]});
+      if(data && data.ok) setSt(c,data);
+    }else{
+      const r=await jq('/api/session/delete','POST',{sessionId:S.sid[c.id]});if(r.ok)setSt(c,r);
+    }
+  }
+  else if(a==='aisave'){
+    const payload={
+      provider:$('#ap1').value,
+      lm_url:$('#ap2').value,
+      lm_model:$('#ap3').value,
+      gm_model:$('#ap4').value,
+      gm_key:$('#ap5').value
+    };
+    if(window.sbClient && S.user && S.user.role==='admin'){
+      for(const [k,v] of Object.entries(payload)){
+        if(v!==undefined && v!=='') await window.sbClient.from('system_settings').upsert({key:k,value:String(v)});
+      }
+      S.provider=payload.provider;
+      S.ai=payload;
+      $('#aimsg').textContent='Saved to Supabase.';
+    }else{
+      const r=await jq('/api/admin/ai-settings','POST',{provider:$('#ap1').value,lmUrl:$('#ap2').value,lmModel:$('#ap3').value,gmModel:$('#ap4').value,gmKey:$('#ap5').value});
+      S.provider=$('#ap1').value;$('#aimsg').textContent=r.ok?'Saved.':(r.error||'Failed');
+    }
+  }
+});
+document.addEventListener('change',e=>{if(e.target.id==='ss'){const c=by(S.sel);S.sid[c.id]=+e.target.value;loadState(c)}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='ae'||e.target.id==='apw')){e.preventDefault();document.querySelector('[data-act=auth]').click()}});
+API.init();
+function applyTheme(){document.documentElement.dataset.theme=S.theme;try{localStorage.setItem('iv-theme',S.theme)}catch(e){}}
+S.theme='light';try{S.theme=localStorage.getItem('iv-theme')==='dark'?'dark':'light'}catch(e){}
+applyTheme();render(1);loadAssets();
+</script></body></html>
