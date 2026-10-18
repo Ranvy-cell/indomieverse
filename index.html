@@ -404,8 +404,11 @@ V.account=()=>{
       <input type="password" id="ap5" placeholder="Gemini API key (AIzaSy...)" value="${esc(x.gm_key||'')}" autocomplete="off" style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%;color:var(--cream)">
       <input type="text" id="ap2" placeholder="LM Studio URL (e.g. http://localhost:1234/v1)" value="${esc(x.lm_url||x.lmUrl||'http://localhost:1234/v1')}">
       <input type="text" id="ap3" placeholder="LM Studio model" value="${esc(x.lm_model||x.lmModel||'')}">
-      <button class="btn" data-act="aisave">Save AI Settings</button>
-      <div id="aimsg" role="status" style="font-size:14px;color:var(--mute)"></div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn" data-act="aisave">Save AI Settings</button>
+        <button class="btn alt" data-act="aitest">Test Gemini Key</button>
+      </div>
+      <div id="aimsg" role="status" style="font-size:14px;color:var(--mute);margin-top:4px"></div>
     </div>`:''}</div>`;
   }
 
@@ -448,14 +451,17 @@ Relationship stage with user: ${stg||'Friend'}.`;
       const contents=[];
       const recent=(hist||[]).slice(-8);
       for(const h of recent){
-        const role=(h.role==='model'||h.role==='assistant')?'model':'user';
+        const isUser=(h.role==='user'||h.role==='me');
+        const role=isUser?'user':'model';
         const txt=typeof h.content==='string'?h.content.trim():'';
-        if(txt){
-          if(contents.length>0 && contents[contents.length-1].role===role){
-            contents[contents.length-1].parts[0].text+='\n'+txt;
-          }else{
-            contents.push({role,parts:[{text:txt}]});
-          }
+        if(!txt) continue;
+        // PENTING: Google Gemini API menolak jika pesan pertama bertipe 'model'
+        if(contents.length===0 && role!=='user') continue;
+
+        if(contents.length>0 && contents[contents.length-1].role===role){
+          contents[contents.length-1].parts[0].text+='\n'+txt;
+        }else{
+          contents.push({role,parts:[{text:txt}]});
         }
       }
       if(contents.length===0 || contents[contents.length-1].role!=='user'){
@@ -466,7 +472,7 @@ Relationship stage with user: ${stg||'Friend'}.`;
 
       const ctl=new AbortController();
       const tm=setTimeout(()=>ctl.abort(),9000);
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gmModel}:generateContent?key=${gmKey}`,{
+      let res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gmModel}:generateContent?key=${gmKey}`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         signal:ctl.signal,
@@ -477,19 +483,44 @@ Relationship stage with user: ${stg||'Friend'}.`;
         })
       });
       clearTimeout(tm);
+
+      // Auto-fallback jika model spesifik 404
+      if(res.status===404 && gmModel!=='gemini-1.5-flash'){
+        console.warn(`[AI] Model ${gmModel} 404, mencoba gemini-1.5-flash...`);
+        gmModel='gemini-1.5-flash';
+        const retryCtl=new AbortController();
+        const rTm=setTimeout(()=>retryCtl.abort(),9000);
+        res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${gmKey}`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          signal:retryCtl.signal,
+          body:JSON.stringify({
+            contents,
+            systemInstruction:{parts:[{text:sysm}]},
+            generationConfig:{temperature:0.85,maxOutputTokens:250}
+          })
+        });
+        clearTimeout(rTm);
+      }
+
       if(res.ok){
         const data=await res.json();
         const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if(txt){
           S.lastAiSource=`Gemini (${gmModel})`;
+          S.lastAiError='';
           return {text:txt,source:'gemini'};
         }
       }else{
         const errText=await res.text().catch(()=>'');
-        console.warn('[AI] Gemini API response '+res.status+':',errText);
+        let em='HTTP '+res.status;
+        try{ const ej=JSON.parse(errText); if(ej.error&&ej.error.message) em=ej.error.message; }catch(e){}
+        console.warn('[AI] Gemini API error '+res.status+':',em);
+        S.lastAiError=em;
       }
     }catch(ge){
       console.warn('[AI] Gemini network error or timeout:',ge);
+      S.lastAiError=ge.message||'Koneksi Gemini time out';
     }
   }
 
@@ -520,6 +551,7 @@ Relationship stage with user: ${stg||'Friend'}.`;
         const txt=data?.choices?.[0]?.message?.content?.trim();
         if(txt){
           S.lastAiSource=`LM Studio (${lmModel||'local'})`;
+          S.lastAiError='';
           return {text:txt,source:'lmstudio'};
         }
       }
@@ -536,7 +568,15 @@ Relationship stage with user: ${stg||'Friend'}.`;
 const _chat=V.chat;
 V.chat=()=>{
   const c=by(S.sel),o=owned(c),st=S.st[c.id];let h=_chat();
-  const currentBadge=S.lastAiSource?('AI: '+S.lastAiSource):((S.ai&&(S.ai.gm_key||S.ai.gmKey))?'AI: Gemini Online':'AI: Auto (Gemini / Local / Template)');
+  let currentBadge='AI: Auto (Gemini / Local / Template)';
+  if(S.lastAiSource){
+    currentBadge='AI: '+S.lastAiSource;
+    if(S.lastAiSource.includes('Offline') && S.lastAiError){
+      currentBadge+=` (${S.lastAiError.slice(0,32)}...)`;
+    }
+  }else if(S.ai && (S.ai.gm_key||S.ai.gmKey)){
+    currentBadge='AI: Gemini Online';
+  }
   h=h.replace('Simulated replies, no AI service',currentBadge);
   if(API.live&&S.user&&o&&!S.loaded[c.id+':'+(S.sid[c.id]||'')])setTimeout(()=>loadState(c),0);
   const ss=S.sess[c.id]||[];
@@ -723,6 +763,38 @@ document.addEventListener('click',async e=>{
       $('#aimsg').textContent='✓ Pengaturan AI tersimpan secara lokal & aktif!';
     }
     render(1);
+  }
+  else if(a==='aitest'){
+    const k=$('#ap5').value.trim() || (S.ai&&S.ai.gm_key) || localStorage.getItem('iv_gm_key') || '';
+    let m=$('#ap4').value.trim() || 'gemini-1.5-flash';
+    if(m.includes('2.5')) m='gemini-1.5-flash';
+    if(!k){
+      $('#aimsg').innerHTML='<span style="color:var(--red)">⚠️ Masukkan Gemini API Key terlebih dahulu.</span>';
+      return;
+    }
+    $('#aimsg').innerHTML='<span>⏳ Menguji koneksi ke Google Gemini...</span>';
+    try{
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${k}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{role:'user',parts:[{text:'Tes halo'}]}],
+          generationConfig:{maxOutputTokens:20}
+        })
+      });
+      if(res.ok){
+        const d=await res.json();
+        const rep=d?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'OK';
+        $('#aimsg').innerHTML=`<span style="color:var(--okbd)">✓ Gemini Berhasil Terhubung! (Model: ${m}) Respons: "${esc(rep)}"</span>`;
+      }else{
+        const errText=await res.text();
+        let msg='Error '+res.status;
+        try{ const ej=JSON.parse(errText); if(ej.error&&ej.error.message) msg=ej.error.message; }catch(e){}
+        $('#aimsg').innerHTML=`<span style="color:var(--red)">❌ Gagal (${res.status}): ${esc(msg)}</span>`;
+      }
+    }catch(err){
+      $('#aimsg').innerHTML=`<span style="color:var(--red)">❌ Gagal menghubungi server Google: ${esc(err.message)}. Periksa koneksi internet / adblocker.</span>`;
+    }
   }
 });
 document.addEventListener('change',e=>{if(e.target.id==='ss'){const c=by(S.sel);S.sid[c.id]=+e.target.value;loadState(c)}});
