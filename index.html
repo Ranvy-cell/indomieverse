@@ -281,6 +281,12 @@ API.pull=async()=>{
 };
 
 API.init=async()=>{
+  try{
+    const localAi=JSON.parse(localStorage.getItem('iv_ai_settings')||'{}');
+    S.ai=Object.assign({gm_model:'gemini-1.5-flash',lm_url:'http://localhost:1234/v1',provider:'gemini'},localAi);
+    if(localAi.provider) S.provider=localAi.provider;
+  }catch(e){}
+
   if(window.sbClient){
     API.live=true;
     try{
@@ -294,8 +300,7 @@ API.init=async()=>{
           S.f=prof.flags||{};
         }
         const {data:sets}=await window.sbClient.from('system_settings').select('*');
-        if(sets){
-          S.ai={};
+        if(sets && sets.length){
           sets.forEach(x=>{S.ai[x.key]=x.value;if(x.key==='provider')S.provider=x.value;});
         }
         await API.pull();
@@ -384,7 +389,24 @@ V.account=()=>{
     if(a&&!S.ai&&!window.sbClient)jq('/api/admin/ai-settings').then(r=>{if(r.ok){S.ai=r;render(1)}});
     return `<div class="redeem"><h1 style="font-size:36px">Account</h1><p style="color:var(--mute)">${esc(S.user.email)}${a?' (admin)':''}</p><button class="btn" data-act="logout">Log out</button>
     ${sbCard}
-    ${a?`<div class="panel" style="margin-top:24px;display:grid;gap:10px"><strong>AI provider (admin)</strong><select class="sel" id="ap1" aria-label="Provider">${['builtin','lmstudio','gemini'].map(p=>`<option ${x.provider===p?'selected':''}>${p}</option>`).join('')}</select><input type="text" id="ap2" placeholder="LM Studio URL" value="${esc(x.lm_url||x.lmUrl||'')}"><input type="text" id="ap3" placeholder="LM Studio model" value="${esc(x.lm_model||x.lmModel||'')}"><input type="text" id="ap4" placeholder="Gemini model" value="${esc(x.gm_model||x.gmModel||'')}"><input type="text" id="ap5" placeholder="${(x.gm_key||x.hasKey)?'Gemini key saved (leave blank to keep)':'Gemini API key'}" autocomplete="off"><button class="btn" data-act="aisave">Save settings</button><div id="aimsg" role="status" style="font-size:14px;color:var(--mute)"></div></div>`:''}</div>`;
+    ${a?`<div class="panel" style="margin-top:24px;display:grid;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>🤖 AI Chatbot Settings (Admin)</strong>
+        <span class="tag" style="background:var(--okbg);color:var(--okbd);border-color:currentColor">Auto-Switching AI</span>
+      </div>
+      <p style="color:var(--mute);font-size:13px;margin:0">
+        AI otomatis menjawab menggunakan Gemini atau LM Studio saat online, dan otomatis beralih ke template offline jika koneksi mati.
+      </p>
+      <select class="sel" id="ap1" aria-label="Provider">
+        ${['gemini','lmstudio','builtin'].map(p=>`<option value="${p}" ${(x.provider||'gemini')===p?'selected':''}>${p==='gemini'?'Google Gemini (Cloud AI)':p==='lmstudio'?'LM Studio (Local LLM)':'Template Rules (Offline)'}</option>`).join('')}
+      </select>
+      <input type="text" id="ap4" placeholder="Gemini model (e.g. gemini-1.5-flash)" value="${esc(x.gm_model||x.gmModel||'gemini-1.5-flash')}">
+      <input type="password" id="ap5" placeholder="Gemini API key (AIzaSy...)" value="${esc(x.gm_key||'')}" autocomplete="off" style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%;color:var(--cream)">
+      <input type="text" id="ap2" placeholder="LM Studio URL (e.g. http://localhost:1234/v1)" value="${esc(x.lm_url||x.lmUrl||'http://localhost:1234/v1')}">
+      <input type="text" id="ap3" placeholder="LM Studio model" value="${esc(x.lm_model||x.lmModel||'')}">
+      <button class="btn" data-act="aisave">Save AI Settings</button>
+      <div id="aimsg" role="status" style="font-size:14px;color:var(--mute)"></div>
+    </div>`:''}</div>`;
   }
 
   const lg=S.amode==='login';
@@ -401,10 +423,121 @@ V.account=()=>{
   </div>`;
 };
 
+async function getAdaptiveAiReply(c,hist,msg,stg){
+  let aiCfg=S.ai||{};
+  try{
+    const local=JSON.parse(localStorage.getItem('iv_ai_settings')||'{}');
+    aiCfg=Object.assign({},local,aiCfg);
+  }catch(e){}
+
+  const gmKey=(aiCfg.gm_key||aiCfg.gmKey||localStorage.getItem('iv_gm_key')||'').trim();
+  let gmModel=(aiCfg.gm_model||aiCfg.gmModel||localStorage.getItem('iv_gm_model')||'gemini-1.5-flash').trim();
+  if(gmModel.includes('2.5')) gmModel='gemini-1.5-flash';
+
+  const lmUrl=(aiCfg.lm_url||aiCfg.lmUrl||localStorage.getItem('iv_lm_url')||'http://localhost:1234/v1').trim().replace(/\/+$/,'');
+  const lmModel=(aiCfg.lm_model||aiCfg.lmModel||localStorage.getItem('iv_lm_model')||'local-model').trim();
+
+  const sysm=`You are ${c.name}, a collectible character in INDOMIEVERSE.
+Personality: ${c.role}. Traits: ${c.traits.join(', ')}. Lore: ${c.lore}.
+Reply in Indonesian in 1-3 short friendly sentences. Stay in character.
+Relationship stage with user: ${stg||'Friend'}.`;
+
+  // 1. Prioritas 1: Google Gemini Cloud AI
+  if(gmKey){
+    try{
+      const contents=[];
+      const recent=(hist||[]).slice(-8);
+      for(const h of recent){
+        const role=(h.role==='model'||h.role==='assistant')?'model':'user';
+        const txt=typeof h.content==='string'?h.content.trim():'';
+        if(txt){
+          if(contents.length>0 && contents[contents.length-1].role===role){
+            contents[contents.length-1].parts[0].text+='\n'+txt;
+          }else{
+            contents.push({role,parts:[{text:txt}]});
+          }
+        }
+      }
+      if(contents.length===0 || contents[contents.length-1].role!=='user'){
+        contents.push({role:'user',parts:[{text:msg}]});
+      }else{
+        contents[contents.length-1].parts[0].text+='\n'+msg;
+      }
+
+      const ctl=new AbortController();
+      const tm=setTimeout(()=>ctl.abort(),9000);
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gmModel}:generateContent?key=${gmKey}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        signal:ctl.signal,
+        body:JSON.stringify({
+          contents,
+          systemInstruction:{parts:[{text:sysm}]},
+          generationConfig:{temperature:0.85,maxOutputTokens:250}
+        })
+      });
+      clearTimeout(tm);
+      if(res.ok){
+        const data=await res.json();
+        const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if(txt){
+          S.lastAiSource=`Gemini (${gmModel})`;
+          return {text:txt,source:'gemini'};
+        }
+      }else{
+        const errText=await res.text().catch(()=>'');
+        console.warn('[AI] Gemini API response '+res.status+':',errText);
+      }
+    }catch(ge){
+      console.warn('[AI] Gemini network error or timeout:',ge);
+    }
+  }
+
+  // 2. Prioritas 2: LM Studio / Local LLM
+  if(lmUrl){
+    try{
+      const ctl=new AbortController();
+      const tm=setTimeout(()=>ctl.abort(),2500);
+      const m=[{role:'system',content:sysm}];
+      for(const h of (hist||[]).slice(-8)){
+        m.push({role:h.role==='model'?'assistant':(h.role||'user'),content:h.content});
+      }
+      m.push({role:'user',content:msg});
+      const res=await fetch(`${lmUrl}/chat/completions`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        signal:ctl.signal,
+        body:JSON.stringify({
+          model:lmModel||'local-model',
+          temperature:0.85,
+          max_tokens:250,
+          messages:m
+        })
+      });
+      clearTimeout(tm);
+      if(res.ok){
+        const data=await res.json();
+        const txt=data?.choices?.[0]?.message?.content?.trim();
+        if(txt){
+          S.lastAiSource=`LM Studio (${lmModel||'local'})`;
+          return {text:txt,source:'lmstudio'};
+        }
+      }
+    }catch(le){
+      // LM Studio offline / not running
+    }
+  }
+
+  // 3. Fallback: Template Script / Offline Rules
+  S.lastAiSource='Template (Offline)';
+  return {text:reply(c,msg),source:'template'};
+}
+
 const _chat=V.chat;
 V.chat=()=>{
   const c=by(S.sel),o=owned(c),st=S.st[c.id];let h=_chat();
-  h=h.replace('Simulated replies, no AI service',API.live?'AI: '+S.provider+(S.provider==='builtin'?' (scripted)':''):'Simulated replies, no AI service');
+  const currentBadge=S.lastAiSource?('AI: '+S.lastAiSource):((S.ai&&(S.ai.gm_key||S.ai.gmKey))?'AI: Gemini Online':'AI: Auto (Gemini / Local / Template)');
+  h=h.replace('Simulated replies, no AI service',currentBadge);
   if(API.live&&S.user&&o&&!S.loaded[c.id+':'+(S.sid[c.id]||'')])setTimeout(()=>loadState(c),0);
   const ss=S.sess[c.id]||[];
   return `<div class="panel" style="margin-bottom:12px;display:grid;gap:10px">${S.user?`<div class="send"><select class="sel" id="ss" aria-label="Chat session">${ss.map(x=>`<option value="${x.id}" ${x.id==S.sid[c.id]?'selected':''}>${esc(x.title)}</option>`).join('')}</select><button class="btn alt" data-act="snew" ${o?'':'disabled'}>New chat</button><button class="btn alt" data-act="sdel" ${o&&ss.length?'':'disabled'}>Delete</button></div>`:`<div style="color:var(--mute);font-size:14px">${API.live?'Guest mode: this chat is not saved. Log in to keep history and bond stats.':'Local demo: replies are scripted and nothing is saved.'}</div>`}
@@ -440,25 +573,15 @@ async function send(t){
   render(1);
 
   try{
+    const stg=(S.st[c.id]&&S.st[c.id].stage)||'Friend';
+    const aiRes=await getAdaptiveAiReply(c,hist,t,stg);
+    const botReply=aiRes.text;
+
+    const neg=/bodoh|bego|stupid|idiot|benci|hate|jelek|sampah|diam|shut up/i.test(t);
+    const pos=/terima kasih|makasih|thanks|thank you|suka|love|keren|hebat|enak|sayang|tolong|please/i.test(t);
+    const d=neg?[-6,-8,-5]:(pos?[3,2,2]:[1,1,1]);
+
     if(window.sbClient && S.user){
-      let botReply=reply(c,t);
-      if(S.provider==='gemini' && S.ai && S.ai.gm_key){
-        try{
-          const sysm="You are "+c.name+", a collectible character in INDOMIEVERSE. Traits: "+c.traits.join(', ')+". Lore: "+c.lore+". Reply in Indonesian in 1-3 short friendly sentences.";
-          const contents=hist.map(h=>({role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]})).concat([{role:'user',parts:[{text:t}]}]);
-          const gmRes=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.ai.gm_model||'gemini-2.5-flash'}:generateContent?key=${S.ai.gm_key}`,{
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({contents,systemInstruction:{parts:[{text:sysm}]},generationConfig:{temperature:0.85,maxOutputTokens:300}})
-          });
-          const gmData=await gmRes.json();
-          if(gmData.candidates&&gmData.candidates[0].content.parts[0].text){
-            botReply=gmData.candidates[0].content.parts[0].text.trim();
-          }
-        }catch(ge){console.warn('Gemini direct error, using fallback:',ge);}
-      }
-      const neg=/bodoh|bego|stupid|idiot|benci|hate|jelek|sampah|diam|shut up/i.test(t);
-      const pos=/terima kasih|makasih|thanks|thank you|suka|love|keren|hebat|enak|sayang|tolong|please/i.test(t);
-      const d=neg?[-6,-8,-5]:(pos?[3,2,2]:[1,1,1]);
       const {data,error}=await window.sbClient.rpc('save_chat_turn',{
         p_character_id:c.id,
         p_session_id:S.sid[c.id]||null,
@@ -480,9 +603,9 @@ async function send(t){
       if(r.progress)S.lv[c.id]=r.progress;
       ms.push(['bot',esc(r.reply)]);
     } else {
-      const x=await API.chat(c.id,t);
-      ms.push(['bot',esc(x.reply)]);
-      S.lv[c.id]=x.progress;
+      const [l,x]=S.lv[c.id];
+      S.lv[c.id]=[l,Math.min(99,x+5)];
+      ms.push(['bot',esc(botReply)]);
     }
   }catch(e){
     console.error('Chat error:',e);
@@ -574,22 +697,32 @@ document.addEventListener('click',async e=>{
   else if(a==='aisave'){
     const payload={
       provider:$('#ap1').value,
-      lm_url:$('#ap2').value,
-      lm_model:$('#ap3').value,
-      gm_model:$('#ap4').value,
-      gm_key:$('#ap5').value
+      lm_url:$('#ap2').value.trim(),
+      lm_model:$('#ap3').value.trim(),
+      gm_model:$('#ap4').value.trim() || 'gemini-1.5-flash',
+      gm_key:$('#ap5').value.trim()
     };
-    if(window.sbClient && S.user && S.user.role==='admin'){
+    try {
+      localStorage.setItem('iv_ai_settings', JSON.stringify(payload));
+      if(payload.gm_key) localStorage.setItem('iv_gm_key', payload.gm_key);
+      if(payload.gm_model) localStorage.setItem('iv_gm_model', payload.gm_model);
+      if(payload.lm_url) localStorage.setItem('iv_lm_url', payload.lm_url);
+      if(payload.lm_model) localStorage.setItem('iv_lm_model', payload.lm_model);
+    } catch(e) {}
+
+    S.provider=payload.provider;
+    S.ai=Object.assign({}, S.ai, payload);
+    S.lastAiSource = payload.provider === 'gemini' ? `Gemini (${payload.gm_model})` : (payload.provider === 'lmstudio' ? 'LM Studio' : 'Template');
+
+    if(window.sbClient && S.user && (S.user.role==='admin' || S.user.email.toLowerCase()==='brilyannf@gmail.com')){
       for(const [k,v] of Object.entries(payload)){
         if(v!==undefined && v!=='') await window.sbClient.from('system_settings').upsert({key:k,value:String(v)});
       }
-      S.provider=payload.provider;
-      S.ai=payload;
-      $('#aimsg').textContent='Saved to Supabase.';
+      $('#aimsg').textContent='✓ Pengaturan AI tersimpan & aktif!';
     }else{
-      const r=await jq('/api/admin/ai-settings','POST',{provider:$('#ap1').value,lmUrl:$('#ap2').value,lmModel:$('#ap3').value,gmModel:$('#ap4').value,gmKey:$('#ap5').value});
-      S.provider=$('#ap1').value;$('#aimsg').textContent=r.ok?'Saved.':(r.error||'Failed');
+      $('#aimsg').textContent='✓ Pengaturan AI tersimpan secara lokal & aktif!';
     }
+    render(1);
   }
 });
 document.addEventListener('change',e=>{if(e.target.id==='ss'){const c=by(S.sel);S.sid[c.id]=+e.target.value;loadState(c)}});
