@@ -282,14 +282,28 @@ API.pull=async()=>{
 
 API.init=async()=>{
   try{
+    const globalAi=window.GLOBAL_AI_CONFIG||{};
     const localAi=JSON.parse(localStorage.getItem('iv_ai_settings')||'{}');
-    S.ai=Object.assign({gm_model:'gemini-1.5-flash',lm_url:'http://localhost:1234/v1',provider:'gemini'},localAi);
-    if(localAi.provider) S.provider=localAi.provider;
+    S.ai=Object.assign({gm_model:'gemini-2.5-flash',lm_url:'http://localhost:1234/v1',provider:'gemini'},globalAi,localAi);
+    if(S.ai.provider) S.provider=S.ai.provider;
   }catch(e){}
 
   if(window.sbClient){
     API.live=true;
     try{
+      // Muat system_settings untuk SEMUA pengunjung (publik/tamu/user)
+      try{
+        const {data:sets}=await window.sbClient.from('system_settings').select('*');
+        if(sets && sets.length){
+          sets.forEach(x=>{
+            if(x.value){
+              S.ai[x.key]=x.value;
+              if(x.key==='provider') S.provider=x.value;
+            }
+          });
+        }
+      }catch(err){}
+
       const {data:{session}}=await window.sbClient.auth.getSession();
       if(session && session.user){
         const isAdm=session.user.email && session.user.email.toLowerCase()==='brilyannf@gmail.com';
@@ -298,10 +312,6 @@ API.init=async()=>{
         if(prof){
           if(!isAdm) S.user.role=prof.role||'user';
           S.f=prof.flags||{};
-        }
-        const {data:sets}=await window.sbClient.from('system_settings').select('*');
-        if(sets && sets.length){
-          sets.forEach(x=>{S.ai[x.key]=x.value;if(x.key==='provider')S.provider=x.value;});
         }
         await API.pull();
       }else{
@@ -427,15 +437,14 @@ V.account=()=>{
 };
 
 async function getAdaptiveAiReply(c,hist,msg,stg){
-  let aiCfg=S.ai||{};
+  let aiCfg=Object.assign({},window.GLOBAL_AI_CONFIG||{},S.ai||{});
   try{
     const local=JSON.parse(localStorage.getItem('iv_ai_settings')||'{}');
-    aiCfg=Object.assign({},local,aiCfg);
+    aiCfg=Object.assign({},aiCfg,local);
   }catch(e){}
 
   const gmKey=(aiCfg.gm_key||aiCfg.gmKey||localStorage.getItem('iv_gm_key')||'').trim();
-  let gmModel=(aiCfg.gm_model||aiCfg.gmModel||localStorage.getItem('iv_gm_model')||'gemini-1.5-flash').trim();
-  if(gmModel.includes('2.5')) gmModel='gemini-1.5-flash';
+  let gmModel=(aiCfg.gm_model||aiCfg.gmModel||localStorage.getItem('iv_gm_model')||'gemini-2.5-flash').trim();
 
   const lmUrl=(aiCfg.lm_url||aiCfg.lmUrl||localStorage.getItem('iv_lm_url')||'http://localhost:1234/v1').trim().replace(/\/+$/,'');
   const lmModel=(aiCfg.lm_model||aiCfg.lmModel||localStorage.getItem('iv_lm_model')||'local-model').trim();
@@ -485,12 +494,12 @@ Relationship stage with user: ${stg||'Friend'}.`;
       clearTimeout(tm);
 
       // Auto-fallback jika model spesifik 404
-      if(res.status===404 && gmModel!=='gemini-1.5-flash'){
-        console.warn(`[AI] Model ${gmModel} 404, mencoba gemini-1.5-flash...`);
-        gmModel='gemini-1.5-flash';
+      if(res.status===404 && gmModel!=='gemini-flash-latest'){
+        console.warn(`[AI] Model ${gmModel} 404, mencoba gemini-flash-latest...`);
+        gmModel='gemini-flash-latest';
         const retryCtl=new AbortController();
         const rTm=setTimeout(()=>retryCtl.abort(),9000);
-        res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${gmKey}`,{
+        res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${gmKey}`,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           signal:retryCtl.signal,
@@ -754,11 +763,14 @@ document.addEventListener('click',async e=>{
     S.ai=Object.assign({}, S.ai, payload);
     S.lastAiSource = payload.provider === 'gemini' ? `Gemini (${payload.gm_model})` : (payload.provider === 'lmstudio' ? 'LM Studio' : 'Template');
 
-    if(window.sbClient && S.user && (S.user.role==='admin' || S.user.email.toLowerCase()==='brilyannf@gmail.com')){
-      for(const [k,v] of Object.entries(payload)){
-        if(v!==undefined && v!=='') await window.sbClient.from('system_settings').upsert({key:k,value:String(v)});
-      }
-      $('#aimsg').textContent='✓ Pengaturan AI tersimpan & aktif!';
+      if(window.sbClient && S.user && isAdmin(S.user)){
+      const rows=Object.entries(payload)
+        .filter(([k,v])=>v!==undefined&&v!=='')
+        .map(([k,v])=>({key:k,value:String(v)}));
+      const {error}=await window.sbClient.from('system_settings').upsert(rows,{onConflict:'key'});
+      $('#aimsg').textContent=error
+        ? '❌ Gagal simpan ke cloud: '+error.message
+        : '✓ Tersimpan ke cloud, berlaku untuk semua pengunjung!';
     }else{
       $('#aimsg').textContent='✓ Pengaturan AI tersimpan secara lokal & aktif!';
     }
