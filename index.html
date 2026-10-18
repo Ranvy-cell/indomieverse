@@ -643,7 +643,7 @@ async function send(t){
       if(data.sessionId) S.sid[c.id]=data.sessionId;
       if(data.progress) S.lv[c.id]=data.progress;
       ms.push(['bot',esc(botReply)]);
-    } else if(API.live){
+    } else if(API.live && !window.sbClient){
       const r=await jq('/api/chat','POST',{characterId:c.id,message:t,sessionId:S.user?S.sid[c.id]:null,history:hist});
       if(!r.ok)throw 0;
       S.provider=r.provider;
@@ -763,7 +763,7 @@ document.addEventListener('click',async e=>{
     S.ai=Object.assign({}, S.ai, payload);
     S.lastAiSource = payload.provider === 'gemini' ? `Gemini (${payload.gm_model})` : (payload.provider === 'lmstudio' ? 'LM Studio' : 'Template');
 
-      if(window.sbClient && S.user && isAdmin(S.user)){
+    if(window.sbClient && S.user && isAdmin(S.user)){
       const rows=Object.entries(payload)
         .filter(([k,v])=>v!==undefined&&v!=='')
         .map(([k,v])=>({key:k,value:String(v)}));
