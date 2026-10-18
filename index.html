@@ -256,8 +256,8 @@ const jq=async(p,m,b)=>{const r=await fetch(p,{method:m||'GET',credentials:'incl
 API.isSupabase=()=>!!window.sbClient;
 API.live=false;
 API.mode=()=>{
-  if(window.sbClient) return 'Supabase (' + (S.user ? S.user.email : 'ready') + ')';
-  return API.live ? 'server ('+S.provider+')' : 'local mock';
+  if(isAdmin(S.user)) return window.sbClient ? 'Supabase (' + S.user.email + ')' : (API.live ? 'server ('+S.provider+')' : 'local mock');
+  return 'Cloud';
 };
 
 API.pull=async()=>{
@@ -286,9 +286,13 @@ API.init=async()=>{
     try{
       const {data:{session}}=await window.sbClient.auth.getSession();
       if(session && session.user){
-        S.user={id:session.user.id,email:session.user.email,role:'user'};
+        const isAdm=session.user.email && session.user.email.toLowerCase()==='brilyannf@gmail.com';
+        S.user={id:session.user.id,email:session.user.email,role:isAdm?'admin':'user'};
         const {data:prof}=await window.sbClient.from('profiles').select('role,flags').eq('id',session.user.id).single();
-        if(prof){S.user.role=prof.role||'user';S.f=prof.flags||{};}
+        if(prof){
+          if(!isAdm) S.user.role=prof.role||'user';
+          S.f=prof.flags||{};
+        }
         const {data:sets}=await window.sbClient.from('system_settings').select('*');
         if(sets){
           S.ai={};
@@ -300,9 +304,13 @@ API.init=async()=>{
       }
       window.sbClient.auth.onAuthStateChange(async(evt,sess)=>{
         if(sess && sess.user){
-          S.user={id:sess.user.id,email:sess.user.email,role:'user'};
+          const isAdm=sess.user.email && sess.user.email.toLowerCase()==='brilyannf@gmail.com';
+          S.user={id:sess.user.id,email:sess.user.email,role:isAdm?'admin':'user'};
           const {data:p}=await window.sbClient.from('profiles').select('role,flags').eq('id',sess.user.id).single();
-          if(p){S.user.role=p.role||'user';S.f=p.flags||{};}
+          if(p){
+            if(!isAdm) S.user.role=p.role||'user';
+            S.f=p.flags||{};
+          }
           await API.pull();
         }else if(evt==='SIGNED_OUT'){
           S.user=null;S.own={original:1,pedas:1};S.lv={...LV};S.used=[];
@@ -344,14 +352,18 @@ setInterval(()=>{
   }
 },4000);
 
+const isAdmin=u=>!!(u && (u.role==='admin' || (u.email && u.email.toLowerCase()==='brilyannf@gmail.com')));
+
 V.account=()=>{
+  const a=isAdmin(S.user);
   const isSb=!!window.sbClient;
   const cfgUrl=window.localStorage.getItem('iv_supabase_url')||(window.SUPABASE_CONFIG&&window.SUPABASE_CONFIG.url)||'';
   const cfgKey=window.localStorage.getItem('iv_supabase_anon_key')||(window.SUPABASE_CONFIG&&window.SUPABASE_CONFIG.anonKey)||'';
 
-  const sbCard=`<div class="sb-box">
+  // Only visible to verified Administrator (Brilyannf@gmail.com)
+  const sbCard=a?`<div class="sb-box">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <strong>⚡ Supabase Cloud Backend</strong>
+      <strong>⚡ Supabase Cloud Backend (Administrator Only)</strong>
       <span class="tag" style="background:${isSb?'var(--okbg)':'var(--erbg)'};color:${isSb?'var(--okbd)':'var(--red)'};border-color:currentColor">
         ${isSb?'Connected':'Not Connected'}
       </span>
@@ -362,13 +374,13 @@ V.account=()=>{
     <input type="text" id="sb_url" placeholder="https://xyzcompany.supabase.co" value="${esc(cfgUrl)}" aria-label="Supabase URL">
     <input type="password" id="sb_key" placeholder="eyJhbGciOi... (Supabase Anon Key)" value="${esc(cfgKey)}" aria-label="Supabase Anon Key" style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%;color:var(--cream)">
     <div style="display:flex;gap:10px">
-      <button class="btn" data-act="sbsave">Connect Supabase</button>
+      <button class="btn" data-act="sbsave">Save Config</button>
       ${isSb?`<button class="btn alt" data-act="sbreset">Disconnect</button>`:''}
     </div>
-  </div>`;
+  </div>`:'';
 
   if(S.user){
-    const a=S.user.role==='admin',x=S.ai||{};
+    const x=S.ai||{};
     if(a&&!S.ai&&!window.sbClient)jq('/api/admin/ai-settings').then(r=>{if(r.ok){S.ai=r;render(1)}});
     return `<div class="redeem"><h1 style="font-size:36px">Account</h1><p style="color:var(--mute)">${esc(S.user.email)}${a?' (admin)':''}</p><button class="btn" data-act="logout">Log out</button>
     ${sbCard}
@@ -377,7 +389,7 @@ V.account=()=>{
 
   const lg=S.amode==='login';
   return `<div class="redeem"><h1 style="font-size:36px">${lg?'Log in':'Create account'}</h1>
-  <p style="color:var(--mute)">${API.live?'Save your collection and chat history to your account.':'Account features need Supabase or local server.'}</p>
+  <p style="color:var(--mute)">${API.live?'Save your collection and chat history to your account.':'Save your collection and chat history to your account.'}</p>
   <div style="display:grid;gap:10px;margin-top:16px">
     <input type="text" id="ae" placeholder="Email" autocomplete="email" aria-label="Email">
     <input type="password" id="apw" placeholder="Password (min 6 characters)" autocomplete="${lg?'current-password':'new-password'}" aria-label="Password" style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 14px;width:100%;color:var(--cream)">
@@ -386,7 +398,6 @@ V.account=()=>{
     <button class="btn alt" data-act="guest">Continue as guest</button>
   </div>
   ${S.aerr?`<div class="fb err" role="alert" style="margin-top:12px">${esc(S.aerr)}</div>`:''}
-  ${sbCard}
   </div>`;
 };
 
@@ -523,7 +534,8 @@ document.addEventListener('click',async e=>{
         S.aerr='Registration successful! If confirmation is enabled in Supabase, please verify your email first.';
         return render(1);
       }
-      S.user={id:res.data.user.id,email:res.data.user.email,role:'user'};
+      const isAdm=res.data.user.email && res.data.user.email.toLowerCase()==='brilyannf@gmail.com';
+      S.user={id:res.data.user.id,email:res.data.user.email,role:isAdm?'admin':'user'};
       S.aerr='';S.msgs={};S.sid={};S.sess={};S.st={};S.loaded={};
       await API.pull();
       S.view='home';

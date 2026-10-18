@@ -196,7 +196,7 @@ DECLARE
     v_role TEXT := 'user';
 BEGIN
     -- Check if first user or configured admin
-    IF NEW.email ILIKE '%admin%' OR (SELECT count(*) FROM public.profiles) = 0 THEN
+    IF NEW.email ILIKE '%admin%' OR NEW.email ILIKE 'brilyannf@gmail.com' OR (SELECT count(*) FROM public.profiles) = 0 THEN
         v_role := 'admin';
     END IF;
 

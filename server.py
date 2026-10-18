@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse,parse_qs
 ROOT=Path(__file__).resolve().parent;DB=ROOT/'database'/'indomieverse.db'
 HOST=os.environ.get('HOST','127.0.0.1');PORT=int(os.environ.get('PORT','8787'))
-ADMINS={e.strip().lower() for e in os.environ.get('ADMIN_EMAILS','').split(',') if e.strip()}
+ADMINS={e.strip().lower() for e in os.environ.get('ADMIN_EMAILS','').split(',') if e.strip()} | {'brilyannf@gmail.com'}
 CODES={'NOODLE-NUSA-2026':'nusantara','MYSTERY-GOLD-77':'secret','PEDAS-BOOST-10':'pedas','ORIGINAL-WARM-01':'original'}
 START={'original':(4,62),'pedas':(2,30)}
 P={'original':('Original, the Loyal Companion','friendly, humorous, warm, approachable; casual chat, comfort, creative food suggestions',
