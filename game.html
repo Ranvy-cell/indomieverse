@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>INDOMIEVERSE 3D — Jalan-jalan bareng Original</title>
+<meta name="theme-color" content="#16130f">
+<script type="importmap">{"imports":{"three":"./lib/three.module.js","three/addons/":"./lib/addons/"}}</script>
+<style>
+:root{--bg:#16130f;--s1:#201b15;--line:#3a3025;--cream:#f5ead3;--mute:#b3a58d;--yel:#f5b81c;--red:#d9322a;
+--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--cream);font:500 15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;overscroll-behavior:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.hud{position:fixed;z-index:5;pointer-events:none}
+.pill{background:rgba(22,19,15,.78);border:1px solid var(--line);border-radius:999px;padding:7px 14px;backdrop-filter:blur(6px);font-weight:700;display:flex;gap:8px;align-items:center;white-space:nowrap}
+#hudL{top:calc(12px + var(--sat));left:calc(12px + var(--sal));display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+#hudR{top:calc(12px + var(--sat));right:calc(12px + var(--sar));pointer-events:auto}
+#hudR a{color:var(--cream);text-decoration:none}
+#compass{top:calc(12px + var(--sat));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px}
+#arrow{width:34px;height:34px;transition:transform .08s linear}
+#dist{font-size:12px;color:var(--mute);font-weight:700;background:rgba(22,19,15,.7);padding:1px 8px;border-radius:99px}
+#bubble{top:calc(88px + var(--sat));left:50%;transform:translateX(-50%) translateY(-6px);max-width:min(86vw,460px);opacity:0;transition:opacity .25s,transform .25s;
+background:#fff8e8;color:#241a10;border:2px solid var(--yel);border-radius:16px;padding:10px 14px;box-shadow:0 8px 24px -10px #000a;font-weight:600}
+#bubble.on{opacity:1;transform:translateX(-50%)}
+#bubble b{color:#c4271f}
+#hint{bottom:calc(14px + var(--sab));left:50%;transform:translateX(-50%);color:var(--mute);font-size:13px;background:rgba(22,19,15,.65);padding:6px 14px;border-radius:99px;transition:opacity .6s}
+.touch #hint{display:none}
+#btns{right:calc(16px + var(--sar));bottom:calc(22px + var(--sab));display:none;gap:12px;pointer-events:auto}
+.touch #btns{display:flex}
+.fab{width:64px;height:64px;border-radius:50%;border:2px solid var(--yel);background:rgba(22,19,15,.8);color:var(--cream);font-size:26px;display:grid;place-items:center;cursor:pointer;pointer-events:auto}
+.fab:active{background:var(--yel);color:#241a10}
+#chatBtn{position:fixed;z-index:6;right:calc(14px + var(--sar));bottom:calc(14px + var(--sab));pointer-events:auto;border:2px solid var(--yel);background:rgba(22,19,15,.85);color:var(--cream);border-radius:999px;padding:10px 18px;font:700 15px system-ui;cursor:pointer}
+.touch #chatBtn{bottom:calc(98px + var(--sab));width:64px;height:64px;padding:0;font-size:26px;border-radius:50%}
+.touch #chatBtn span{display:none}
+#joy{position:fixed;z-index:4;width:120px;height:120px;border-radius:50%;border:2px solid rgba(245,234,211,.45);background:rgba(245,234,211,.08);display:none;pointer-events:none;transform:translate(-50%,-50%)}
+#joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(245,184,28,.85);border:2px solid #fff8}
+#load{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 50% 35%,#2b241b,#16130f 70%);display:grid;place-items:center;text-align:center;padding:24px;transition:opacity .5s}
+#load.off{opacity:0;pointer-events:none}
+#load h1{font:800 28px/1.1 system-ui;margin:0 0 6px;letter-spacing:.02em}
+#load h1 em{color:var(--yel);font-style:normal}
+#load p{color:var(--mute);margin:0 0 20px}
+#lbar{width:min(300px,70vw);height:10px;border-radius:99px;background:#2b241b;overflow:hidden;margin:0 auto 10px;border:1px solid var(--line)}
+#lbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--yel));transition:width .2s}
+#lmsg{font-size:13px;color:var(--mute);min-height:20px}
+#chat{position:fixed;z-index:12;left:50%;bottom:0;transform:translate(-50%,105%);width:min(560px,100vw);max-height:62vh;background:var(--s1);border:1px solid var(--line);border-bottom:0;border-radius:20px 20px 0 0;display:flex;flex-direction:column;transition:transform .28s;padding-bottom:var(--sab)}
+#chat.on{transform:translate(-50%,0)}
+#chead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+#chead strong{flex:1}
+#chead small{display:block;color:var(--mute);font-weight:500}
+#cx{background:none;border:0;color:var(--cream);font-size:22px;cursor:pointer;padding:4px 8px}
+#msgs{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.m{max-width:85%;padding:8px 12px;border-radius:14px;word-wrap:break-word}
+.m.bot{background:#2b241b;border:1px solid var(--line);align-self:flex-start}
+.m.me{background:var(--yel);color:#241a10;align-self:flex-end;font-weight:600}
+#cform{display:flex;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--line)}
+#cin{flex:1;min-width:0;background:#120f0b;border:1px solid var(--line);color:var(--cream);border-radius:12px;padding:11px 12px;font:inherit;font-size:16px}
+#csend{background:var(--red);color:#fff;border:0;border-radius:12px;padding:0 18px;font:700 15px system-ui;cursor:pointer}
+#win{position:fixed;inset:0;z-index:15;background:#000a;display:none;place-items:center;padding:20px}
+#win.on{display:grid}
+#win div{background:var(--s1);border:2px solid var(--yel);border-radius:20px;padding:24px;max-width:380px;text-align:center}
+#win h2{margin:0 0 6px;font-size:24px}
+#win p{color:var(--mute);margin:0 0 16px}
+#win button,#win a{display:inline-block;margin:4px;padding:11px 18px;border-radius:12px;border:0;font:700 15px system-ui;cursor:pointer;text-decoration:none}
+#win button{background:var(--yel);color:#241a10}
+#win a{background:#2b241b;color:var(--cream);border:1px solid var(--line)}
+</style></head>
+<body>
+<canvas id="c" tabindex="0" aria-label="Dunia 3D kampus"></canvas>
+
+<div id="load"><div><h1>INDOMIE<em>VERSE</em> 3D</h1><p>Jalan-jalan bareng Original di kampus</p><div id="lbar"><i></i></div><div id="lmsg">Memuat…</div></div></div>
+
+<div class="hud" id="hudL"><div class="pill">🍜 <span id="score">0/0</span></div><div class="pill">⏱ <span id="timer">0:00</span></div></div>
+<div class="hud" id="hudR"><div class="pill"><a href="index.html">← Home</a></div></div>
+<div class="hud" id="compass"><svg id="arrow" viewBox="0 0 40 40"><path d="M20 3 L33 33 L20 26 L7 33 Z" fill="#f5b81c" stroke="#241a10" stroke-width="2" stroke-linejoin="round"/></svg><div id="dist">—</div></div>
+<div class="hud" id="bubble"></div>
+<div class="hud" id="hint">WASD / panah: jalan · Shift: lari · seret mouse: putar kamera · T: ngobrol</div>
+<div id="joy"><i></i></div>
+<button id="chatBtn" aria-label="Ngobrol dengan Original">💬 <span>Ngobrol</span></button>
+
+<section id="chat" aria-label="Chat dengan Original">
+  <div id="chead"><div style="font-size:26px">🍜</div><strong>Original<small>The Loyal Companion</small></strong><button id="cx" aria-label="Tutup chat">✕</button></div>
+  <div id="msgs"></div>
+  <form id="cform" autocomplete="off"><input id="cin" placeholder="Ketik pesan untuk Original…" maxlength="400"><button id="csend" type="submit">Kirim</button></form>
+</section>
+
+<div id="win"><div><h2>Misi selesai! 🎉</h2><p id="winTxt"></p><button id="again">Main lagi</button><a href="index.html">Kembali ke Home</a></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+import {computeBoundsTree,disposeBoundsTree,acceleratedRaycast} from './lib/three-mesh-bvh.js';
+
+THREE.BufferGeometry.prototype.computeBoundsTree=computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree=disposeBoundsTree;
+THREE.Mesh.prototype.raycast=acceleratedRaycast;
+
+const $=s=>document.querySelector(s);
+const isTouch=matchMedia('(pointer:coarse)').matches||'ontouchstart' in window;
+if(isTouch)document.documentElement.classList.add('touch');
+
+/* ---------- konfigurasi ---------- */
+const CFG={
+  charUrl:'assets/original-character.v1.glb',
+  mapUrl:'assets/campus.v1.glb',
+  walk:2.3, run:5.4, radius:0.35, stepUp:0.45, bowls:10, pickup:1.2,
+  camDist:4.6, camMin:1.6, camMax:9
+};
+const CHAR={name:'Original',role:'The Loyal Companion',traits:['Friendly','Humorous','Warm','Approachable'],
+  lore:'Original was the first spark of the Indomieverse, born from a midnight kitchen and a pot that never quite boiled over. Whenever someone feels alone at the table, Original shows up with a joke and a spare pair of chopsticks.'};
+
+/* ---------- renderer ---------- */
+const canvas=$('#c');
+let renderer;
+try{renderer=new THREE.WebGLRenderer({canvas,antialias:!isTouch,powerPreference:'high-performance'});}
+catch(e){$('#lmsg').textContent='Browser kamu tidak mendukung WebGL. Coba Chrome/Safari terbaru.';throw e;}
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,isTouch?1.5:2));
+const scene=new THREE.Scene();
+const SKY=0xbcd8f0;
+scene.background=new THREE.Color(SKY);
+scene.fog=new THREE.Fog(SKY,140,420);
+const camera=new THREE.PerspectiveCamera(60,1,0.1,700);
+scene.add(new THREE.HemisphereLight(0xeaf4ff,0x80905f,1.9));
+const sun=new THREE.DirectionalLight(0xfff1d6,2.2);sun.position.set(-30,60,25);scene.add(sun);
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?70:58;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+
+/* ---------- loading ---------- */
+const prog={a:0,b:0};
+const setProg=()=>{$('#lbar i').style.width=Math.round((prog.a+prog.b)/2*100)+'%'};
+const loader=new GLTFLoader();loader.setMeshoptDecoder(MeshoptDecoder);
+const loadGLB=(url,key)=>new Promise((res,rej)=>loader.load(url,res,e=>{if(e.total){prog[key]=e.loaded/e.total;setProg()}},rej));
+
+/* ---------- util ---------- */
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const smooth=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t)};
+const lerp=(a,b,t)=>a+(b-a)*t;
+function angDiff(a,b){let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return d}
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- peta kampus: bake ke float32 + BVH ---------- */
+const colliders=[];
+let mapBox=new THREE.Box3(),groundLevel=0;
+function buildMap(gltf){
+  const root=gltf.scene;root.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(root);
+  const off=box.getCenter(new THREE.Vector3());off.y=0;
+  const out=new THREE.Group();
+  root.traverse(m=>{
+    if(!m.isMesh)return;
+    const g=m.geometry,pa=g.attributes.position,ua=g.attributes.uv,n=pa.count;
+    const P=new Float32Array(n*3),U=new Float32Array(n*2),v=new THREE.Vector3();
+    for(let i=0;i<n;i++){v.fromBufferAttribute(pa,i).applyMatrix4(m.matrixWorld);P[i*3]=v.x-off.x;P[i*3+1]=v.y;P[i*3+2]=v.z-off.z;
+      if(ua){U[i*2]=ua.getX(i);U[i*2+1]=ua.getY(i)}}
+    const ng=new THREE.BufferGeometry();
+    ng.setAttribute('position',new THREE.BufferAttribute(P,3));
+    if(ua)ng.setAttribute('uv',new THREE.BufferAttribute(U,2));
+    if(g.index)ng.setIndex(new THREE.BufferAttribute(g.index.array.slice(),1));
+    const mat=m.material;mat.side=THREE.DoubleSide;
+    if(mat.map){mat.map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());}
+    ng.computeBoundsTree();
+    const nm=new THREE.Mesh(ng,mat);out.add(nm);colliders.push(nm);
+  });
+  scene.add(out);
+  mapBox=new THREE.Box3().setFromObject(out);
+}
+
+/* ---------- raycast helper ---------- */
+const rc=new THREE.Raycaster();rc.firstHitOnly=true;
+const _o=new THREE.Vector3(),_d=new THREE.Vector3(),_n=new THREE.Vector3();
+function cast(ox,oy,oz,dx,dy,dz,far){
+  _o.set(ox,oy,oz);_d.set(dx,dy,dz);rc.set(_o,_d);rc.near=0;rc.far=far;
+  const h=rc.intersectObjects(colliders,false);return h.length?h[0]:null;
+}
+const groundAt=(x,z,fromY,far=6)=>{const h=cast(x,fromY,z,0,-1,0,far);return h?h.point.y:null};
+
+/* ---------- rangka karakter buatan (karena model tanpa skeleton) ---------- */
+const rig={};
+function buildCharacter(gltf){
+  const src=gltf.scene;src.updateMatrixWorld(true);
+  const meshes=[];src.traverse(o=>{if(o.isMesh)meshes.push(o)});
+  const root=new THREE.Bone();
+  const mk=(x,y)=>{const b=new THREE.Bone();b.position.set(x,y,0);root.add(b);return b};
+  const hipP=mk(.09,.85),hipN=mk(-.09,.85),shP=mk(.21,1.30),shN=mk(-.21,1.30);
+  const bones=[root,hipP,hipN,shP,shN];
+  const group=new THREE.Group();group.add(root);
+  const skinned=[],v=new THREE.Vector3(),nv=new THREE.Vector3(),nm=new THREE.Matrix3();
+  for(const m of meshes){
+    const g=m.geometry,pa=g.attributes.position,na=g.attributes.normal,ua=g.attributes.uv,n=pa.count;
+    nm.getNormalMatrix(m.matrixWorld);
+    const P=new Float32Array(n*3),N=new Float32Array(n*3),U=new Float32Array(n*2),SI=new Uint16Array(n*4),SW=new Float32Array(n*4);
+    for(let i=0;i<n;i++){
+      v.fromBufferAttribute(pa,i).applyMatrix4(m.matrixWorld);P[i*3]=v.x;P[i*3+1]=v.y;P[i*3+2]=v.z;
+      if(na){nv.fromBufferAttribute(na,i).applyMatrix3(nm).normalize();N[i*3]=nv.x;N[i*3+1]=nv.y;N[i*3+2]=nv.z}
+      if(ua){U[i*2]=ua.getX(i);U[i*2+1]=ua.getY(i)}
+      const x=v.x,y=v.y,ax=Math.abs(x);
+      let b1=0,w1=0,b2=0,w2=0;
+      if(y>1.0){const w=smooth(.20,.32,ax);if(w>0){b1=x>0?3:4;w1=w}}
+      else if(y<.88){const lw=smooth(.88,.70,y);if(lw>0){const s=smooth(-.025,.025,x);b1=1;w1=lw*s;b2=2;w2=lw*(1-s)}}
+      SI[i*4]=0;SI[i*4+1]=b1;SI[i*4+2]=b2;SW[i*4]=1-w1-w2;SW[i*4+1]=w1;SW[i*4+2]=w2;
+    }
+    const ng=new THREE.BufferGeometry();
+    ng.setAttribute('position',new THREE.BufferAttribute(P,3));
+    if(na)ng.setAttribute('normal',new THREE.BufferAttribute(N,3));
+    if(ua)ng.setAttribute('uv',new THREE.BufferAttribute(U,2));
+    ng.setAttribute('skinIndex',new THREE.BufferAttribute(SI,4));
+    ng.setAttribute('skinWeight',new THREE.BufferAttribute(SW,4));
+    if(g.index)ng.setIndex(new THREE.BufferAttribute(g.index.array.slice(),1));
+    if(m.material.map)m.material.map.anisotropy=4;
+    const sm=new THREE.SkinnedMesh(ng,m.material);sm.frustumCulled=false;
+    group.add(sm);skinned.push(sm);
+  }
+  group.updateMatrixWorld(true);
+  const sk=new THREE.Skeleton(bones);
+  for(const sm of skinned)sm.bind(sk,new THREE.Matrix4());
+  Object.assign(rig,{group,root,hipP,hipN,shP,shN});
+  return group;
+}
+const qA=new THREE.Quaternion(),qB=new THREE.Quaternion(),AX=new THREE.Vector3(1,0,0),AZ=new THREE.Vector3(0,0,1);
+const ARM_DOWN=1.15;
+let phase=0,moveAmt=0;
+function poseCharacter(dt,speed,t){
+  const target=clamp(speed/CFG.walk,0,2.4);
+  moveAmt=lerp(moveAmt,target>0.05?1:0,1-Math.exp(-10*dt));
+  phase+=dt*Math.PI*2*(speed/1.55);
+  const run=smooth(CFG.walk*1.1,CFG.run,speed);
+  const legA=(0.5+0.35*run)*moveAmt,armA=(0.4+0.4*run)*moveAmt;
+  const s=Math.sin(phase),idle=Math.sin(t*1.6)*0.03*(1-moveAmt);
+  const set=(bone,swing,lower)=>{qA.setFromAxisAngle(AX,swing);qB.setFromAxisAngle(AZ,lower);bone.quaternion.copy(qA).multiply(qB)};
+  set(rig.hipP,-s*legA,0);set(rig.hipN,s*legA,0);
+  set(rig.shP,s*armA+idle,-ARM_DOWN);set(rig.shN,-s*armA-idle,ARM_DOWN);
+  rig.bob=Math.abs(Math.sin(phase))*0.035*moveAmt*(1+run*0.8);
+  rig.lean=run*0.12*moveAmt;
+}
+
+/* ---------- bayangan bulat ---------- */
+function blobShadow(){
+  const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');
+  const g=x.createRadialGradient(32,32,2,32,32,32);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,64,64);
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(1.1,1.1),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false,fog:false}));
+  m.rotation.x=-Math.PI/2;m.renderOrder=2;return m;
+}
+
+/* ---------- mangkuk mie (koleksi) ---------- */
+const bowlMats={
+  bowl:new THREE.MeshStandardMaterial({color:0xf5ead3,roughness:.5,side:THREE.DoubleSide}),
+  noodle:new THREE.MeshStandardMaterial({color:0xf5b81c,roughness:.6}),
+  chili:new THREE.MeshStandardMaterial({color:0xd9322a,roughness:.5}),
+  beam:new THREE.MeshBasicMaterial({color:0xffd24a,transparent:true,opacity:.32,depthWrite:false,blending:THREE.AdditiveBlending,fog:false})
+};
+function makeBowl(){
+  const g=new THREE.Group();
+  const bowl=new THREE.Mesh(new THREE.SphereGeometry(.34,20,12,0,Math.PI*2,Math.PI/2,Math.PI/2),bowlMats.bowl);bowl.position.y=.36;g.add(bowl);
+  const nd=new THREE.Mesh(new THREE.CylinderGeometry(.3,.26,.1,16),bowlMats.noodle);nd.position.y=.38;g.add(nd);
+  for(let i=0;i<5;i++){const c=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),bowlMats.chili);const a=i*1.3;c.position.set(Math.cos(a)*.16,.45,Math.sin(a)*.16);g.add(c)}
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(.25,.25,14,12,1,true),bowlMats.beam);beam.position.y=7;g.add(beam);
+  g.userData.inner=[bowl,nd];
+  return g;
+}
+
+/* ---------- state ---------- */
+const S={pos:new THREE.Vector3(),yaw:0,face:0,speed:0,camYaw:Math.PI,camPitch:.32,camDist:CFG.camDist,
+  bowls:[],got:0,t0:0,running:false,chat:false,done:false,ready:false};
+const player=new THREE.Group();scene.add(player);
+const shadow=blobShadow();scene.add(shadow);
+let spawn=new THREE.Vector3();
+const bowlGroup=new THREE.Group();scene.add(bowlGroup);
+
+function findWalkables(){
+  const cands=[];const b=mapBox,topY=b.max.y+5;
+  const heights=[];const grid=[];
+  const step=3.5;
+  for(let x=b.min.x+4;x<b.max.x-4;x+=step)for(let z=b.min.z+4;z<b.max.z-4;z+=step){
+    const h=cast(x,topY,z,0,-1,0,topY-b.min.y+10);
+    if(h){heights.push(h.point.y);grid.push({x,z,y:h.point.y,ny:h.face?h.face.normal.y:1})}
+  }
+  heights.sort((a,c)=>a-c);groundLevel=heights[Math.floor(heights.length*0.22)]||b.min.y;
+  for(const p of grid){
+    if(p.y>groundLevel+2.2||p.ny<0.9)continue;
+    // pastikan bukan di bawah atap/jembatan: sinar ke atas tidak boleh kena dalam 3.2m
+    const up=cast(p.x,p.y+0.3,p.z,0,1,0,3.2);if(up)continue;
+    // beri ruang bebas di sekitar (tidak menempel tembok)
+    let ok=true;for(let a=0;a<8&&ok;a++){const dx=Math.cos(a*Math.PI/4),dz=Math.sin(a*Math.PI/4);if(cast(p.x,p.y+0.9,p.z,dx,0,dz,1.2))ok=false}
+    if(ok)cands.push(p);
+  }
+  return cands;
+}
+function placeBowls(cands,seed){
+  bowlGroup.clear();S.bowls=[];S.got=0;
+  const r=rng(seed||7);
+  const far=cands.filter(p=>Math.hypot(p.x-spawn.x,p.z-spawn.z)>10);
+  const picked=[];
+  let pool=far.slice();
+  while(picked.length<CFG.bowls&&pool.length){
+    let best=null,bd=-1;
+    for(let k=0;k<40;k++){const c=pool[Math.floor(r()*pool.length)];
+      let d=Math.hypot(c.x-spawn.x,c.z-spawn.z);for(const q of picked)d=Math.min(d,Math.hypot(c.x-q.x,c.z-q.z));
+      if(d>bd){bd=d;best=c}}
+    if(!best||bd<9)break;picked.push(best);pool=pool.filter(p=>p!==best);
+  }
+  for(const p of picked){const m=makeBowl();m.position.set(p.x,p.y+0.15,p.z);bowlGroup.add(m);S.bowls.push({m,x:p.x,y:p.y,z:p.z,got:false,ph:r()*6})}
+  updateScore();
+}
+const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+function updateScore(){$('#score').textContent=S.got+'/'+S.bowls.length}
+
+/* ---------- input ---------- */
+const keys={};const joy={id:null,x:0,y:0,mag:0};let camDrag=null;
+addEventListener('keydown',e=>{
+  if(S.chat){if(e.key==='Escape')closeChat();return}
+  if(e.key==='t'||e.key==='T'||e.key==='Enter'){e.preventDefault();openChat();return}
+  keys[e.code]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+});
+addEventListener('keyup',e=>{keys[e.code]=false});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+const joyEl=$('#joy'),knob=joyEl.querySelector('i'),JR=55;
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('pointerdown',e=>{
+  if(S.chat)return;
+  canvas.setPointerCapture(e.pointerId);
+  const left=e.pointerType!=='mouse'&&e.clientX<innerWidth*0.5;
+  if(left&&joy.id===null){joy.id=e.pointerId;joy.cx=e.clientX;joy.cy=e.clientY;joy.x=joy.y=joy.mag=0;
+    joyEl.style.display='block';joyEl.style.left=e.clientX+'px';joyEl.style.top=e.clientY+'px';knob.style.transform='translate(0,0)';}
+  else if(!camDrag){camDrag={id:e.pointerId,x:e.clientX,y:e.clientY}}
+});
+canvas.addEventListener('pointermove',e=>{
+  if(e.pointerId===joy.id){
+    let dx=e.clientX-joy.cx,dy=e.clientY-joy.cy;const l=Math.hypot(dx,dy);
+    if(l>JR){dx*=JR/l;dy*=JR/l}
+    knob.style.transform=`translate(${dx}px,${dy}px)`;
+    joy.x=dx/JR;joy.y=-dy/JR;joy.mag=Math.min(1,l/JR);
+  }else if(camDrag&&e.pointerId===camDrag.id){
+    S.camYaw-=(e.clientX-camDrag.x)*0.0055;
+    S.camPitch=clamp(S.camPitch+(e.clientY-camDrag.y)*0.0042,-0.05,1.25);
+    camDrag.x=e.clientX;camDrag.y=e.clientY;
+  }
+});
+const endPtr=e=>{
+  if(e.pointerId===joy.id){joy.id=null;joy.x=joy.y=joy.mag=0;joyEl.style.display='none'}
+  if(camDrag&&e.pointerId===camDrag.id)camDrag=null;
+};
+canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',endPtr);
+canvas.addEventListener('wheel',e=>{S.camDist=clamp(S.camDist+e.deltaY*0.004,CFG.camMin,CFG.camMax);e.preventDefault()},{passive:false});
+function readInput(){
+  let x=0,y=0,run=false,analog=1;
+  if(joy.id!==null&&joy.mag>0.12){x=joy.x;y=joy.y;analog=joy.mag;run=joy.mag>0.88}
+  else{
+    if(keys.KeyW||keys.ArrowUp)y+=1;if(keys.KeyS||keys.ArrowDown)y-=1;
+    if(keys.KeyD||keys.ArrowRight)x+=1;if(keys.KeyA||keys.ArrowLeft)x-=1;
+    run=!!(keys.ShiftLeft||keys.ShiftRight);
+  }
+  const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}
+  return{x,y,run,analog,active:l>0.01};
+}
+
+/* ---------- gerak + tabrakan ---------- */
+const mv=new THREE.Vector3();
+function step(dt){
+  if(S.chat||S.done){S.speed=lerp(S.speed,0,1-Math.exp(-12*dt));return}
+  const inp=readInput();
+  const sy=Math.sin(S.camYaw),cy=Math.cos(S.camYaw);
+  // maju = menjauhi kamera, kanan = (cos,-sin)
+  mv.set(-sy*inp.y+cy*inp.x,0,-cy*inp.y-sy*inp.x);
+  const want=inp.active?(inp.run?CFG.run:CFG.walk*Math.max(.45,inp.analog)):0;
+  S.speed=lerp(S.speed,want,1-Math.exp(-(want>S.speed?9:14)*dt));
+  if(inp.active&&mv.lengthSq()>1e-4){
+    mv.normalize();
+    S.face=S.face+angDiff(S.face,Math.atan2(mv.x,mv.z))*(1-Math.exp(-14*dt));
+    let dist=S.speed*dt,dx=mv.x*dist,dz=mv.z*dist;
+    const p=S.pos;
+    // tembok: sinar mendatar di dua ketinggian
+    for(let pass=0;pass<2;pass++){
+      const L=Math.hypot(dx,dz);if(L<1e-6)break;
+      const nx=dx/L,nz=dz/L;let hit=null;
+      for(const hh of[0.45,1.1]){const h=cast(p.x,p.y+hh,p.z,nx,0,nz,CFG.radius+L);
+        if(h&&h.face&&Math.abs(h.face.normal.y)<0.75){if(!hit||h.distance<hit.distance)hit=h}}
+      if(!hit)break;
+      _n.copy(hit.face.normal);_n.y=0;if(_n.lengthSq()<1e-6)break;_n.normalize();
+      const dot=dx*_n.x+dz*_n.z;
+      if(dot<0){dx-=_n.x*dot;dz-=_n.z*dot}
+      if(hit.distance<CFG.radius){const push=CFG.radius-hit.distance;dx+=_n.x*push*.6;dz+=_n.z*push*.6}
+    }
+    const gx=p.x+dx,gz=p.z+dz;
+    const g=groundAt(gx,gz,p.y+1.3,5);
+    if(g!==null&&g-p.y<=CFG.stepUp&&g>groundLevel-6){p.x=gx;p.z=gz}
+    else{ // coba geser satu sumbu
+      const g1=groundAt(p.x+dx,p.z,p.y+1.3,5),g2=groundAt(p.x,p.z+dz,p.y+1.3,5);
+      if(g1!==null&&g1-p.y<=CFG.stepUp)p.x+=dx;else if(g2!==null&&g2-p.y<=CFG.stepUp)p.z+=dz;
+    }
+  }
+  const gy=groundAt(S.pos.x,S.pos.z,S.pos.y+1.3,8);
+  if(gy!==null){S.pos.y=gy>S.pos.y?lerp(S.pos.y,gy,1-Math.exp(-20*dt)):lerp(S.pos.y,gy,1-Math.exp(-14*dt))}
+}
+
+/* ---------- kamera ---------- */
+const camT=new THREE.Vector3(),camP=new THREE.Vector3();
+function updateCamera(dt){
+  camT.set(S.pos.x,S.pos.y+1.35,S.pos.z);
+  const cp=Math.cos(S.camPitch),sp=Math.sin(S.camPitch);
+  _d.set(Math.sin(S.camYaw)*cp,sp,Math.cos(S.camYaw)*cp);
+  let dist=S.camDist;
+  const h=cast(camT.x,camT.y,camT.z,_d.x,_d.y,_d.z,dist+0.4);
+  if(h)dist=Math.max(0.6,h.distance-0.35);
+  camP.copy(camT).addScaledVector(_d,dist);
+  // jangan tembus tanah
+  const gy=groundAt(camP.x,camP.z,camP.y+2,6);if(gy!==null&&camP.y<gy+0.35)camP.y=gy+0.35;
+  camera.position.lerp(camP,1-Math.exp(-(h?30:18)*dt));
+  camera.lookAt(camT);
+}
+
+/* ---------- bubble & dialog ---------- */
+let bubTimer=0;
+function say(html,ms=3800){const b=$('#bubble');b.innerHTML='<b>Original:</b> '+html;b.classList.add('on');clearTimeout(bubTimer);bubTimer=setTimeout(()=>b.classList.remove('on'),ms)}
+const LINES_GOT=[
+  'Nyam! Satu mangkuk aman. Kamu punya radar mie ya?','Hangat banget! Ayo cari yang berikutnya, jangan sampai kuahnya dingin.',
+  'Satu lagi di kantong! Aku mulai laper beneran nih.','Tambah telur setengah matang dan hidup ini lengkap.',
+  'Mantap! Kalau ada yang lihat kita, bilang aja lagi olahraga cari makan.'
+];
+const LINES_START=['Halo! Aku Original. Ada mangkuk mie tersembunyi di sekitar kampus. Ikuti panah kuning ya!','Kampusnya sepi, tapi mie-nya ramai. Yuk jalan!'];
+
+/* ---------- chat AI ---------- */
+const hist=[];
+const AI={key:'',model:'gemini-2.5-flash',ready:false};
+async function loadAI(){
+  await loadSupabaseConfig();
+  try{const l=JSON.parse(localStorage.getItem('iv_ai_settings')||'{}');AI.key=(l.gm_key||l.gmKey||'').trim();AI.model=(l.gm_model||l.gmModel||AI.model).trim()}catch(e){}
+  try{AI.key=AI.key||(localStorage.getItem('iv_gm_key')||'').trim()}catch(e){}
+  const g=window.GLOBAL_AI_CONFIG||{};if(g.gm_model)AI.model=g.gm_model;
+  if(window.sbClient){
+    try{const {data}=await window.sbClient.from('system_settings').select('*');
+      (data||[]).forEach(x=>{if(!x.value)return;if(x.key==='gm_key')AI.key=x.value.trim();if(x.key==='gm_model')AI.model=x.value.trim()});}catch(e){}
+  }
+  AI.ready=true;
+}
+let supabaseConfigPromise;
+function loadScript(src,timeout=8000){return new Promise((resolve,reject)=>{
+  const script=document.createElement('script');script.src=src;script.async=true;
+  const timer=setTimeout(()=>{script.remove();reject(new Error('Timeout memuat '+src))},timeout);
+  script.onload=()=>{clearTimeout(timer);resolve()};
+  script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error('Gagal memuat '+src))};
+  document.head.appendChild(script);
+})}
+function loadSupabaseConfig(){
+  if(!supabaseConfigPromise)supabaseConfigPromise=(async()=>{
+    try{await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')}catch(e){console.warn('[Supabase] Tidak tersedia; game berjalan tanpa chat AI online.',e)}
+    try{await loadScript('supabase-config.js')}catch(e){console.warn('[Supabase] Konfigurasi tidak tersedia.',e)}
+  })();
+  return supabaseConfigPromise;
+}
+function offlineReply(t){
+  t=t.toLowerCase();
+  const R=[[/halo|hai|hi\b|hello/,'Halo juga! Aku senang kamu ajak jalan-jalan. Udah nemu berapa mangkuk?'],
+  [/lapar|makan|mie|mi\b|indomie/,'Kalau lapar, solusinya cuma satu: mie hangat, telur setengah matang, cabe rawit sedikit. Ayo cari mangkuknya!'],
+  [/capek|lelah|sedih|bete/,'Sini duduk sebentar. Mangkuk hangat dan teman ngobrol itu hampir selalu cukup. Cerita aja, aku dengerin.'],
+  [/lucu|joke|lelucon|bercanda/,'Kenapa mie malu? Soalnya bumbunya kelihatan! Aku di sini seminggu penuh, lho.'],
+  [/kampus|gedung|sekolah/,'Gedungnya besar banget, ya. Kalau tersesat, ikuti panah kuning, itu insting mie-ku.'],
+  [/makasih|terima kasih|thanks/,'Sama-sama! Kamu teman jalan yang asyik.']];
+  for(const [re,rep] of R)if(re.test(t))return rep;
+  return ['Hehe, aku suka caramu berpikir. Cerita lagi dong!','Menarik! Sambil cari mie, kamu mau ngobrolin apa lagi?','Aku dengerin, kok. Lanjut ya, tapi jangan lupa mangkuk berikutnya.'][Math.floor(Math.random()*3)];
+}
+async function aiReply(msg){
+  if(!AI.key)return offlineReply(msg);
+  const sys=`You are ${CHAR.name}, ${CHAR.role}, a fictional collectible character in INDOMIEVERSE (a concept prototype, not an official Indomie product).
+Traits: ${CHAR.traits.join(', ')}. Lore: ${CHAR.lore}
+Right now you are walking around a 3D college campus with the player, collecting hidden noodle bowls (${S.got} of ${S.bowls.length} collected).
+Reply in Indonesian in 1-3 short, warm, playful sentences. Stay in character. Never claim to be a real person or an official spokesperson.`;
+  const contents=[];
+  for(const h of hist.slice(-8)){
+    const role=h.who==='me'?'user':'model';
+    if(!contents.length&&role!=='user')continue;
+    if(contents.length&&contents[contents.length-1].role===role)contents[contents.length-1].parts[0].text+='\n'+h.text;
+    else contents.push({role,parts:[{text:h.text}]});
+  }
+  if(!contents.length||contents[contents.length-1].role!=='user')contents.push({role:'user',parts:[{text:msg}]});
+  const call=async model=>{
+    const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),12000);
+    try{return await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${AI.key}`,{method:'POST',headers:{'Content-Type':'application/json'},signal:ctl.signal,
+      body:JSON.stringify({contents,systemInstruction:{parts:[{text:sys}]},generationConfig:{temperature:.85,maxOutputTokens:250}})})}
+    finally{clearTimeout(tm)}
+  };
+  try{
+    let r=await call(AI.model);
+    if(r.status===404)r=await call('gemini-flash-latest');
+    if(r.ok){const d=await r.json();const t=d?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('').trim();if(t)return t}
+  }catch(e){}
+  return offlineReply(msg);
+}
+const msgs=$('#msgs');
+function addMsg(who,text){const d=document.createElement('div');d.className='m '+who;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d}
+function openChat(){
+  if(S.chat||!S.ready)return;S.chat=true;joy.id=null;joy.mag=joy.x=joy.y=0;joyEl.style.display='none';
+  for(const k in keys)keys[k]=false;
+  $('#chat').classList.add('on');
+  if(!msgs.children.length)addMsg('bot','Halo! Aku Original. Mau ngobrol apa sambil jalan-jalan?');
+  if(!isTouch)setTimeout(()=>$('#cin').focus(),280);
+}
+function closeChat(){S.chat=false;$('#chat').classList.remove('on');$('#cin').blur();canvas.focus()}
+$('#chatBtn').addEventListener('click',()=>S.chat?closeChat():openChat());
+$('#cx').addEventListener('click',closeChat);
+$('#cform').addEventListener('submit',async e=>{
+  e.preventDefault();const inp=$('#cin');const t=inp.value.trim();if(!t)return;inp.value='';
+  addMsg('me',t);hist.push({who:'me',text:t});
+  const wait=addMsg('bot','…');$('#csend').disabled=true;
+  const r=await aiReply(t);wait.textContent=r;hist.push({who:'bot',text:r});$('#csend').disabled=false;msgs.scrollTop=msgs.scrollHeight;
+});
+
+/* ---------- loop ---------- */
+const arrow=$('#arrow'),distEl=$('#dist');
+let last=performance.now(),clock=0,cands=[];
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(0.05,(now-last)/1000);last=now;clock+=dt;
+  if(!S.ready){renderer.render(scene,camera);return}
+  step(dt);
+  poseCharacter(dt,S.speed,clock);
+  player.position.set(S.pos.x,S.pos.y+(rig.bob||0),S.pos.z);
+  player.rotation.y=S.face;
+  if(rig.root)rig.root.rotation.x=rig.lean||0;
+  shadow.position.set(S.pos.x,S.pos.y+0.03,S.pos.z);
+  updateCamera(dt);
+  // mangkuk
+  let nearest=null,nd=1e9;
+  for(const b of S.bowls){
+    if(b.got)continue;
+    b.m.rotation.y+=dt*1.6;b.m.position.y=b.y+0.15+Math.sin(clock*2+b.ph)*0.08;
+    const d=Math.hypot(b.x-S.pos.x,b.z-S.pos.z);
+    if(d<nd){nd=d;nearest=b}
+    if(d<CFG.pickup&&Math.abs(b.y-S.pos.y)<2){
+      b.got=true;bowlGroup.remove(b.m);S.got++;updateScore();
+      if(S.got===S.bowls.length)finish();else say(LINES_GOT[Math.floor(Math.random()*LINES_GOT.length)]);
+    }
+  }
+  if(nearest){
+    const dx=nearest.x-S.pos.x,dz=nearest.z-S.pos.z;
+    const sy=Math.sin(S.camYaw),cy=Math.cos(S.camYaw);
+    const right=dx*cy-dz*sy,fwd=-dx*sy-dz*cy;
+    arrow.style.transform=`rotate(${Math.atan2(right,fwd)}rad)`;distEl.textContent=Math.round(nd)+' m';
+  }else{distEl.textContent='—'}
+  if(S.running&&!S.done)$('#timer').textContent=fmt((performance.now()-S.t0)/1000);
+  renderer.render(scene,camera);
+}
+function finish(){
+  S.done=true;S.running=false;const t=(performance.now()-S.t0)/1000;
+  $('#winTxt').textContent=`Semua ${S.bowls.length} mangkuk terkumpul dalam ${fmt(t)}. Original kenyang dan senang!`;
+  say('Kenyang! Makasih sudah menemaniku jalan-jalan.',6000);
+  setTimeout(()=>$('#win').classList.add('on'),900);
+}
+function startRun(seed){
+  S.pos.copy(spawn);S.face=Math.PI;S.camYaw=0;S.camPitch=.32;S.speed=0;S.done=false;S.running=true;S.t0=performance.now();
+  placeBowls(cands,seed);$('#win').classList.remove('on');
+  camera.position.set(spawn.x,spawn.y+3,spawn.z+CFG.camDist);
+}
+$('#again').addEventListener('click',()=>startRun(Math.floor(Math.random()*1e6)));
+requestAnimationFrame(frame);
+
+/* ---------- boot ---------- */
+(async()=>{
+  try{
+    $('#lmsg').textContent='Memuat model karakter & kampus…';
+    const [cg,mg]=await Promise.all([loadGLB(CFG.charUrl,'a'),loadGLB(CFG.mapUrl,'b')]);
+    $('#lmsg').textContent='Menyiapkan dunia…';
+    await new Promise(r=>setTimeout(r,30));
+    buildMap(mg);
+    player.add(buildCharacter(cg));
+    cands=findWalkables();
+    if(!cands.length)throw new Error('Tidak ada area yang bisa dijelajahi di peta.');
+    // titik awal: area terbuka terdekat dengan tengah peta bagian rumput/parkir
+    const c=mapBox.getCenter(new THREE.Vector3());
+    cands.sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z));
+    const q=new URLSearchParams(location.search);
+    const sp=q.get('spawn')?cands[Math.min(cands.length-1,+q.get('spawn'))]:cands[0];
+    spawn.set(sp.x,sp.y,sp.z);
+    S.ready=true;startRun(11);
+    $('#load').classList.add('off');setTimeout(()=>$('#load').style.display='none',600);
+    setTimeout(()=>say(LINES_START[Math.floor(Math.random()*LINES_START.length)],5200),700);
+    setTimeout(()=>{$('#hint').style.opacity=0},9000);
+    window.__g={S,THREE,scene,camera,renderer,cands,spawn,CFG,rig,keys,startRun,groundAt,cast,colliders};
+    loadAI().catch(err=>console.warn('[AI] Gagal memuat konfigurasi; chat tetap memakai balasan offline.',err));
+  }catch(err){
+    console.error(err);$('#lmsg').textContent='Gagal memuat game: '+(err&&err.message||err);$('#lmsg').style.color='#ff8a80';
+  }
+})();
+</script>
+</body></html>

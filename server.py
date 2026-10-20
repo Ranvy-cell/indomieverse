@@ -65,6 +65,7 @@ def ai_reply(ch,hist,msg,stg):
         print('[ai] failed:',e);return builtin(ch,msg,len(hist)),'fallback'
     return builtin(ch,msg,len(hist)),'builtin'
 class H(SimpleHTTPRequestHandler):
+    extensions_map={**SimpleHTTPRequestHandler.extensions_map,'.js':'text/javascript','.mjs':'text/javascript','.glb':'model/gltf-binary','.json':'application/json','.css':'text/css','.html':'text/html'}
     def __init__(s,*a,**k):super().__init__(*a,directory=str(ROOT),**k)
     def js(s,o,code=200,cookie=None):
         d=json.dumps(o).encode();s.send_response(code);s.send_header('Content-Type','application/json; charset=utf-8')
