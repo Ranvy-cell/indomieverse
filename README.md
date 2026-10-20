@@ -8,7 +8,7 @@ setup-lib.mjs
 supabase-config.js        <- sudah ada di website kamu
 assets/
   original-character.v1.glb   (2,2 MB)
-  campus.v1.glb               (3,1 MB)
+  campus.v2.glb               (56,3 MB, tekstur 8K)
 lib/                      <- dibuat oleh: node setup-lib.mjs
 ```
 
