@@ -171,18 +171,20 @@ function buildMap(gltf){
   const out=new THREE.Group();
   root.traverse(m=>{
     if(!m.isMesh)return;
-    const g=m.geometry,pa=g.attributes.position,ua=g.attributes.uv,n=pa.count;
-    const P=new Float32Array(n*3),U=new Float32Array(n*2),v=new THREE.Vector3();
-    for(let i=0;i<n;i++){v.fromBufferAttribute(pa,i).applyMatrix4(m.matrixWorld);P[i*3]=v.x-off.x;P[i*3+1]=v.y;P[i*3+2]=v.z-off.z;
-      if(ua){U[i*2]=ua.getX(i);U[i*2+1]=ua.getY(i)}}
-    const ng=new THREE.BufferGeometry();
-    ng.setAttribute('position',new THREE.BufferAttribute(P,3));
-    if(ua)ng.setAttribute('uv',new THREE.BufferAttribute(U,2));
-    if(g.index)ng.setIndex(new THREE.BufferAttribute(g.index.array.slice(),1));
-    const mat=m.material;mat.side=THREE.DoubleSide;
-    if(mat.map){mat.map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());}
+    // Keep every glTF vertex channel (normals, uv2, tangents, colors, etc.).
+    // PBR materials render black or incorrectly when normals/UV channels are dropped.
+    const ng=m.geometry.clone();ng.applyMatrix4(m.matrixWorld);
+    const pa=ng.attributes.position;
+    for(let i=0;i<pa.count;i++){pa.setX(i,pa.getX(i)-off.x);pa.setZ(i,pa.getZ(i)-off.z)}
+    pa.needsUpdate=true;
+    if(!ng.attributes.normal)ng.computeVertexNormals();
+    const mats=Array.isArray(m.material)?m.material:[m.material];
+    for(const mat of mats){
+      mat.side=THREE.DoubleSide;
+      if(mat.map)mat.map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+    }
     ng.computeBoundsTree();
-    const nm=new THREE.Mesh(ng,mat);out.add(nm);colliders.push(nm);
+    const nm=new THREE.Mesh(ng,m.material);out.add(nm);colliders.push(nm);
   });
   scene.add(out);mapRoot=out;activeMapGltf=gltf;
   mapBox=new THREE.Box3().setFromObject(out);
@@ -303,7 +305,7 @@ let spawn=new THREE.Vector3();
 const bowlGroup=new THREE.Group();scene.add(bowlGroup);
 
 function findWalkables(){
-  const cands=[];const b=mapBox,topY=b.max.y+5;
+  const cands=[],fallback=[];const b=mapBox,topY=b.max.y+5;
   const heights=[];const grid=[];
   const step=Math.max(3.5,Math.sqrt(((b.max.x-b.min.x)*(b.max.z-b.min.z))/1800));
   for(let x=b.min.x+4;x<b.max.x-4;x+=step)for(let z=b.min.z+4;z<b.max.z-4;z+=step){
@@ -313,13 +315,16 @@ function findWalkables(){
   heights.sort((a,c)=>a-c);groundLevel=heights[Math.floor(heights.length*0.22)]||b.min.y;
   for(const p of grid){
     if(p.y>groundLevel+2.2||p.ny<0.9)continue;
+    fallback.push(p);
     // pastikan bukan di bawah atap/jembatan: sinar ke atas tidak boleh kena dalam 3.2m
     const up=cast(p.x,p.y+0.3,p.z,0,1,0,3.2);if(up)continue;
     // beri ruang bebas di sekitar (tidak menempel tembok)
     let ok=true;for(let a=0;a<8&&ok;a++){const dx=Math.cos(a*Math.PI/4),dz=Math.sin(a*Math.PI/4);if(cast(p.x,p.y+0.9,p.z,dx,0,dz,1.2))ok=false}
     if(ok)cands.push(p);
   }
-  return cands;
+  // Dense city assets may have debris/overhangs that fail the strict clearance
+  // probes everywhere. Keep valid ground candidates so the map can still start.
+  return cands.length?cands:fallback;
 }
 function clearBowls(){
   for(const group of [...bowlGroup.children]){
