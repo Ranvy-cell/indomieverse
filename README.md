@@ -8,19 +8,20 @@ setup-lib.mjs
 supabase-config.js        <- sudah ada di website kamu
 assets/
   original-character.v1.glb   (2,2 MB)
-  campus.v2.glb               (56,3 MB, tekstur 8K)
+  campus.v3.glb               (29,2 MB, tekstur 2K kompatibel dengan lebih banyak GPU)
   after-the-rain-map.v1.glb   (map kota, material PBR kompatibel)
+  city.v1.glb                 (map balapan City)
   home-interior-map.v1.glb     (Home free roam)
 lib/                      <- dibuat oleh: node setup-lib.mjs
 ```
 
 1. `node setup-lib.mjs` (sekali saja, butuh internet) -> membuat folder `lib/`.
 2. Jalankan lewat server (bukan klik dua kali file), mis. `npx serve .` lalu buka `/game.html`.
-3. Pilih Campus atau After the Rain untuk misi koleksi, atau Home untuk free roam di interior.
+3. Pilih Campus untuk misi koleksi, After the Rain atau City untuk balapan melawan Original, atau Home untuk free roam di interior.
 
-## Balapan After the Rain
+## Balapan After the Rain dan City
 
-Pilih **After the Rain**, tentukan **Normal** atau **Hard · Strategi**, lalu mulai balapan. Kedua mode berjalan lokal tanpa API key atau koneksi AI eksternal. Normal memakai pilihan target lokal dan kecepatan pemain standar. Hard membuat Original merencanakan dua target mie yang bisa diraih, berbelok dan berakselerasi lebih cepat, lebih sigap melakukan sprint, serta lebih cepat mencari rute baru saat terhambat. Kecepatan jalan dan sprint pemain tetap normal; kecepatan maksimum Original tetap sama.
+Pilih **After the Rain** atau **City**, tentukan **Normal** atau **Hard · Strategi**, lalu mulai balapan. Kedua mode berjalan lokal tanpa API key atau koneksi AI eksternal. Normal memakai pilihan target lokal dan kecepatan pemain standar. Hard membuat Original merencanakan dua target mie yang bisa diraih, berbelok dan berakselerasi lebih cepat, lebih sigap melakukan sprint, serta lebih cepat mencari rute baru saat terhambat. Kecepatan jalan dan sprint pemain tetap normal; kecepatan maksimum Original tetap sama. Di City, mangkuk mie ditempatkan lebih berjauhan untuk menguji kemampuan mencari dan membaca area.
 
 Untuk membuka game, jalankan melalui server HTTP, misalnya `npx serve . -l 3000`, lalu buka `/game.html`.
 

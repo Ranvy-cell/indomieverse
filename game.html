@@ -121,6 +121,7 @@ background:#fff8e8;color:#241a10;border:2px solid var(--yel);border-radius:16px;
   </div>
   <button class="map-card" data-map="campus"><strong>Map 1 · Campus</strong><span>Jelajahi kampus dan kumpulkan mangkuk mie.</span></button>
   <button class="map-card" data-map="after-rain"><strong>Map 2 · After the Rain</strong><span>Balapan mengumpulkan mie melawan Original setelah berbicara dengannya.</span></button>
+  <button class="map-card" data-map="city"><strong>Map 3 · City</strong><span>City berskala besar, 15 mangkuk tersebar, ada mobil bergerak, dan kamu bisa melompat dengan Space.</span></button>
   <button class="map-card" data-map="home"><strong>Mode Home</strong><span>Free roam di interior loft.</span></button>
   <section id="raceDifficultyPanel" hidden aria-label="Kesulitan balapan">
     <h2>Pilih Kesulitan Balapan</h2>
@@ -177,10 +178,12 @@ const CFG={
   camDist:4.6, camMin:1.6, camMax:9
 };
 const MAPS={
-  campus:{name:'Campus',url:'assets/campus.v2.glb',home:false},
-  'after-rain':{name:'After the Rain',url:'assets/after-the-rain-map.v1.glb',home:false},
+  campus:{name:'Campus',url:'assets/campus.v3.glb',home:false},
+  'after-rain':{name:'After the Rain',url:'assets/after-the-rain-map.v1.glb',home:false,race:true},
+  city:{name:'City',url:'assets/city.v1.glb',home:false,race:true,worldScale:3,speedScale:0.25,characterScale:0.4,cameraDist:2.8,bowlCount:15,bowlSpawnDistance:8,bowlSpacing:7},
   home:{name:'Home',url:'assets/home-interior-map.v1.glb',home:true}
 };
+const isRaceMap=id=>!!MAPS[id]?.race;
 // Bounds follow the full interior floor in the centered Home model.
 const HOME_ZONE={minX:3.95,maxX:16.95,minZ:3.2,maxZ:12.2,cameraMaxZ:12.2,
   spawn:{x:7.8,z:8.2}};
@@ -228,15 +231,25 @@ function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(see
 
 /* ---------- peta kampus: bake ke float32 + BVH ---------- */
 const colliders=[];
+const colliderMaterials=[];
 let mapBox=new THREE.Box3(),groundLevel=0;
-let mapRoot=null,activeMapGltf=null,activeMap=null,characterGltf=null,mavuikaGltf=null,homeGlass=null;
-function buildMap(gltf){
+let mapRoot=null,activeMapGltf=null,activeMapMixer=null,activeMap=null,characterGltf=null,mavuikaGltf=null,homeGlass=null;
+let cityVehicles=[],cityVehicleRefresh=0,cityBumpCooldown=0,knockbackX=0,knockbackZ=0;
+function buildMap(gltf,map=activeMap){
   const root=gltf.scene;root.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(root);
   const off=box.getCenter(new THREE.Vector3());off.y=0;
   const out=new THREE.Group();
+  const animated=!!gltf.animations?.length;
+  const vehicleRoots=[];
+  if(animated)root.traverse(node=>{if(/AUTO|CAMIONETA|MICRO/i.test(node.name))vehicleRoots.push(node)});
+  const vehicleRootSet=new Set(vehicleRoots);
+  const isVehiclePart=node=>{for(let at=node;at&&at!==root.parent;at=at.parent)if(vehicleRootSet.has(at))return true;return false};
   root.traverse(m=>{
     if(!m.isMesh)return;
+    // Moving vehicles use live bounds below; baking them here would leave invisible,
+    // immovable walls at their starting positions.
+    if(animated&&isVehiclePart(m))return;
     // Keep every glTF vertex channel (normals, uv2, tangents, colors, etc.).
     // PBR materials render black or incorrectly when normals/UV channels are dropped.
     const ng=m.geometry.clone();ng.applyMatrix4(m.matrixWorld);
@@ -247,14 +260,30 @@ function buildMap(gltf){
     // does not frustum-cull furniture using its old, uncentered bounding sphere.
     ng.computeBoundingBox();ng.computeBoundingSphere();
     if(!ng.attributes.normal)ng.computeVertexNormals();
-    const mats=Array.isArray(m.material)?m.material:[m.material];
-    for(const mat of mats){
+    const sourceMats=Array.isArray(m.material)?m.material:[m.material];
+    for(const mat of sourceMats){
       mat.side=THREE.DoubleSide;
       if(mat.map)mat.map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     }
     ng.computeBoundsTree();
-    const nm=new THREE.Mesh(ng,m.material);out.add(nm);colliders.push(nm);
+    // Keep baked map geometry only for collision/raycasting; animated source visuals
+    // remain mounted separately below.
+    const collisionMats=animated?sourceMats.map(mat=>{
+      const copy=mat.clone();copy.colorWrite=false;copy.depthWrite=false;
+      colliderMaterials.push(copy);return copy;
+    }):m.material;
+    const nm=new THREE.Mesh(ng,Array.isArray(m.material)?collisionMats:(animated?collisionMats[0]:m.material));
+    if(animated)nm.visible=false;
+    out.add(nm);colliders.push(nm);
   });
+  if(animated){
+    const visualRoot=new THREE.Group();visualRoot.position.set(-off.x,0,-off.z);
+    visualRoot.add(root);out.add(visualRoot);
+    cityVehicles=vehicleRoots.map(node=>({node,bounds:new THREE.Box3(),vx:0,vz:0,center:new THREE.Vector3()}));cityVehicleRefresh=0;
+    activeMapMixer=new THREE.AnimationMixer(root);
+    for(const clip of gltf.animations)activeMapMixer.clipAction(clip).play();
+  }
+  out.scale.setScalar(map?.worldScale??1);
   scene.add(out);mapRoot=out;activeMapGltf=gltf;
   mapBox=new THREE.Box3().setFromObject(out);
 }
@@ -269,10 +298,15 @@ function buildHomeGlass(){
 }
 function disposeMap(){
   raceGraph=null;
+  if(activeMapMixer&&activeMapGltf){activeMapMixer.stopAllAction();activeMapMixer.uncacheRoot(activeMapGltf.scene)}
+  activeMapMixer=null;
+  cityVehicles=[];cityVehicleRefresh=0;cityBumpCooldown=0;knockbackX=knockbackZ=0;
   if(mapRoot)scene.remove(mapRoot);
   if(homeGlass){scene.remove(homeGlass);homeGlass.material.dispose();homeGlass=null}
   for(const mesh of colliders){mesh.geometry.disposeBoundsTree();mesh.geometry.dispose()}
   colliders.length=0;
+  for(const material of colliderMaterials)material.dispose();
+  colliderMaterials.length=0;
   if(activeMapGltf){
     activeMapGltf.scene.traverse(o=>{
       if(o.geometry)o.geometry.dispose();
@@ -532,10 +566,17 @@ function makeBowl(){
 
 /* ---------- state ---------- */
 const S={pos:new THREE.Vector3(),yaw:0,face:0,speed:0,camYaw:Math.PI,camPitch:.32,camDist:CFG.camDist,
-  bowls:[],got:0,originalGot:0,raceStarted:false,raceChallengePending:false,raceChallengeShown:false,stamina:100,sprintCooldown:0,sprinting:false,t0:0,running:false,chat:false,done:false,ready:false,mode:'collect',questStarted:false,questReady:false};
+  bowls:[],got:0,originalGot:0,raceStarted:false,raceChallengePending:false,raceChallengeShown:false,stamina:100,sprintCooldown:0,sprinting:false,jumpQueued:false,jumpVelocity:0,isJumping:false,onGround:true,t0:0,running:false,chat:false,done:false,ready:false,mode:'collect',questStarted:false,questReady:false};
 let raceGraph=null;
 let raceDifficulty='normal';
+let citySpawnFace=Math.PI;
 const player=new THREE.Group();scene.add(player);
+const actorScale=()=>activeMap?.characterScale??1;
+const actorRadius=()=>CFG.radius*actorScale();
+const worldScale=()=>activeMap?.worldScale??1;
+const pickupRadius=()=>CFG.pickup*worldScale();
+const travelScale=()=>worldScale()*(activeMap?.speedScale??1);
+let cityRacePickupHintAt=0;
 const shadow=blobShadow();scene.add(shadow);
 const sitPrompt=$('#sitPrompt');
 const interactPrompt=$('#interactPrompt');
@@ -565,12 +606,12 @@ function findWalkables(){
   }
   heights.sort((a,c)=>a-c);groundLevel=heights[Math.floor(heights.length*0.22)]||b.min.y;
   for(const p of grid){
-    if(p.y>groundLevel+2.2||p.ny<0.9)continue;
+    if(p.y>groundLevel+2.2*worldScale()||p.ny<0.9)continue;
     fallback.push(p);
     // pastikan bukan di bawah atap/jembatan: sinar ke atas tidak boleh kena dalam 3.2m
-    const up=cast(p.x,p.y+0.3,p.z,0,1,0,3.2);if(up)continue;
+    const up=cast(p.x,p.y+0.3*worldScale(),p.z,0,1,0,3.2*worldScale());if(up)continue;
     // beri ruang bebas di sekitar (tidak menempel tembok)
-    let ok=true;for(let a=0;a<8&&ok;a++){const dx=Math.cos(a*Math.PI/4),dz=Math.sin(a*Math.PI/4);if(cast(p.x,p.y+0.9,p.z,dx,0,dz,1.2))ok=false}
+    let ok=true;for(let a=0;a<8&&ok;a++){const dx=Math.cos(a*Math.PI/4),dz=Math.sin(a*Math.PI/4);if(cast(p.x,p.y+0.9*actorScale(),p.z,dx,0,dz,1.2*worldScale()))ok=false}
     if(ok)cands.push(p);
   }
   // Dense city assets may have debris/overhangs that fail the strict clearance
@@ -583,7 +624,7 @@ function walkableGridStep(){
 }
 function raceEdgeKey(a,b){return a<b?`${a}:${b}`:`${b}:${a}`}
 function measureRaceNodeClearance(node){
-  const max=4.5,widths=[];
+  const max=4.5*worldScale(),widths=[];
   for(const [dx,dz] of [[1,0],[0,1]]){
     const a=npcWallAhead(node.x,node.y,node.z,dx,dz,max),b=npcWallAhead(node.x,node.y,node.z,-dx,-dz,max);
     widths.push(Math.min(max,a?a.distance:max)+Math.min(max,b?b.distance:max));
@@ -591,6 +632,8 @@ function measureRaceNodeClearance(node){
   return (widths[0]+widths[1])/2;
 }
 function buildRaceGraph(points,gridStep){
+  // Match the sampling origin used by findWalkables; a scaled offset here
+  // shifts City nodes off the navigation grid and can strand the NPC.
   const b=mapBox,originX=b.min.x+4,originZ=b.min.z+4,nodes=[],cells=new Map();
   const cellOf=p=>({x:Math.round((p.x-originX)/gridStep),z:Math.round((p.z-originZ)/gridStep)});
   for(const p of points){
@@ -603,10 +646,10 @@ function buildRaceGraph(points,gridStep){
     for(const [ox,oz] of [[1,0],[0,1],[1,1],[1,-1]]){
       const to=cells.get(`${c.x+ox},${c.z+oz}`);if(to===undefined)continue;
       const next=nodes[to],dx=next.x-node.x,dz=next.z-node.z,d=Math.hypot(dx,dz),nx=dx/d,nz=dz/d;
-      if(next.y-node.y>NPC_CFG.stepUp||node.y-next.y>NPC_CFG.drop)continue;
-      if(npcWallAhead(node.x,node.y,node.z,nx,nz,d+NPC_CFG.radius))continue;
+      if(next.y-node.y>NPC_CFG.stepUp*worldScale()||node.y-next.y>NPC_CFG.drop*worldScale())continue;
+      if(npcWallAhead(node.x,node.y,node.z,nx,nz,d+NPC_CFG.radius*worldScale()))continue;
       const clearance=Math.min(node.clearance,next.clearance);
-      const narrowPenalty=1+Math.max(0,3.2-clearance)*.055,cost=d*narrowPenalty;
+      const narrowPenalty=1+Math.max(0,3.2*worldScale()-clearance)*.055,cost=d*narrowPenalty;
       node.edges.push({to,distance:d,clearance,cost});
       next.edges.push({to:node.id,distance:d,clearance,cost});
     }
@@ -645,25 +688,48 @@ function findRacePath(graph,startId,goalId,blockedEdges=new Set()){
 function placeOriginalNpc(gltf,map,cands){
   if(npcRig.group)npcRig.group.traverse(o=>{if(o.geometry)o.geometry.dispose()});
   npcGroup.clear();npcGroup.visible=true;npcPosition=null;
-  npcGroup.add(buildCharacter(gltf,npcRig));npcGroup.scale.setScalar(map.home?0.82:1);
+  npcGroup.add(buildCharacter(gltf,npcRig));npcGroup.scale.setScalar(map.home?0.82:(map.characterScale??1));
   if(map.home){
     const x=HOME_ZONE.maxX-2.1,z=HOME_ZONE.cameraMaxZ-1.1;
     const y=groundAt(x,z,2,8);
     npcPosition={x,y:y===null?spawn.y:y,z};
   }else{
     const center=mapBox.getCenter(new THREE.Vector3());
-    const candidates=cands.filter(p=>Math.hypot(p.x-spawn.x,p.z-spawn.z)>10);
-    const pool=candidates.length?candidates:cands;
-    const spot=pool.reduce((best,p)=>{
-      const score=candidates.length?Math.hypot(p.x-center.x,p.z-center.z):-Math.hypot(p.x-spawn.x,p.z-spawn.z);
-      const bestScore=!best?Infinity:(candidates.length?Math.hypot(best.x-center.x,best.z-center.z):-Math.hypot(best.x-spawn.x,best.z-spawn.z));
-      return !best||score<bestScore?p:best;
-    },null);
+    let spot=null;
+    if(map===MAPS.city){
+      // Find an unobstructed floor point in front of a safe spawn. Sampling
+      // around several central walkables avoids choosing a point behind a wall.
+      let best=null;
+      const bases=[{x:spawn.x,y:spawn.y,z:spawn.z},...cands.slice(0,36)];
+      const angles=[0,-.3,.3,-.65,.65,-1,1],distances=[5.5,7.5];
+      for(const base of bases){
+        const centerPenalty=Math.hypot(base.x-center.x,base.z-center.z)*.015;
+        for(const angle of angles)for(const d of distances){
+          const dx=Math.sin(angle)*d,dz=-Math.cos(angle)*d,x=base.x+dx,z=base.z+dz;
+          const y=groundAt(x,z,base.y+1.3*worldScale(),5*worldScale());
+          if(y===null||Math.abs(y-base.y)>NPC_CFG.stepUp*worldScale())continue;
+          if(npcWallAhead(base.x,base.y,base.z,dx/d,dz/d,d))continue;
+          const score=centerPenalty+Math.abs(d-5.8)+Math.abs(angle)*5;
+          if(!best||score<best.score)best={base:{...base},spot:{x,y,z},score};
+        }
+      }
+      if(best){spawn.set(best.base.x,best.base.y,best.base.z);spot=best.spot}
+    }
+    if(!spot){
+      const candidates=cands.filter(p=>Math.hypot(p.x-spawn.x,p.z-spawn.z)>10*worldScale());
+      const pool=candidates.length?candidates:cands;
+      spot=pool.reduce((best,p)=>{
+        const score=candidates.length?Math.hypot(p.x-center.x,p.z-center.z):-Math.hypot(p.x-spawn.x,p.z-spawn.z);
+        const bestScore=!best?Infinity:(candidates.length?Math.hypot(best.x-center.x,best.z-center.z):-Math.hypot(best.x-spawn.x,best.z-spawn.z));
+        return !best||score<bestScore?p:best;
+      },null);
+    }
     if(!spot)throw new Error('Lokasi NPC Original tidak ditemukan di '+map.name+'.');
     npcPosition={x:spot.x,y:spot.y,z:spot.z};
   }
   npcGroup.position.set(npcPosition.x,npcPosition.y,npcPosition.z);
   npcGroup.rotation.y=Math.atan2(spawn.x-npcPosition.x,spawn.z-npcPosition.z);
+  if(map===MAPS.city)citySpawnFace=Math.atan2(npcPosition.x-spawn.x,npcPosition.z-spawn.z);
   initOriginalNpcAI();
 }
 function initOriginalNpcAI(){
@@ -673,8 +739,8 @@ function initOriginalNpcAI(){
   npcAI.anchor.x=npcPosition.x;npcAI.anchor.y=npcPosition.y;npcAI.anchor.z=npcPosition.z;
   npcRig.wave=0;npcRig.talk=0;npcRig.moveAmt=0;npcRig.phase=0;
 }
-const npcScale=()=>activeMap?.home?.82:1;
-const npcLeash=()=>activeMap?.home?NPC_CFG.leashHome:(S.questStarted&&!S.done?NPC_CFG.leashQuest:NPC_CFG.leashCampus);
+const npcScale=()=>activeMap?.home?.82:(activeMap?.characterScale??1);
+const npcLeash=()=>activeMap?.home?NPC_CFG.leashHome*worldScale():(S.questStarted&&!S.done?NPC_CFG.leashQuest:NPC_CFG.leashCampus)*worldScale();
 // tembok di depan NPC (sinar mendatar di dua ketinggian, sama seperti pemain)
 function npcWallAhead(x,y,z,nx,nz,len){
   const sc=npcScale();
@@ -685,20 +751,20 @@ function npcWallAhead(x,y,z,nx,nz,len){
 function pickNpcTarget(){
   const p=npcPosition,a=npcAI.anchor,home=!!activeMap?.home,leash=npcLeash();
   for(let i=0;i<16;i++){
-    const ang=Math.random()*Math.PI*2,r=1+Math.random()*Math.max(.5,leash-1);
+    const ang=Math.random()*Math.PI*2,r=worldScale()+Math.random()*Math.max(.5*worldScale(),leash-worldScale());
     const x=a.x+Math.cos(ang)*r,z=a.z+Math.sin(ang)*r;
     if(home&&!canExploreHome(x,z))continue;
-    if(Math.hypot(x-S.pos.x,z-S.pos.z)<2)continue;
-    const dx=x-p.x,dz=z-p.z,L=Math.hypot(dx,dz);if(L<1)continue;
+    if(Math.hypot(x-S.pos.x,z-S.pos.z)<2*worldScale())continue;
+    const dx=x-p.x,dz=z-p.z,L=Math.hypot(dx,dz);if(L<worldScale())continue;
     const nx=dx/L,nz=dz/L;
-    if(npcWallAhead(p.x,p.y,p.z,nx,nz,L+.5))continue;
+    if(npcWallAhead(p.x,p.y,p.z,nx,nz,L+.5*worldScale()))continue;
     let ok=true,py=p.y;
-    for(let d=.5;d<=L&&ok;d+=.5){
-      const g=groundAt(p.x+nx*d,p.z+nz*d,py+1.3,4);
-      if(g===null||g-py>NPC_CFG.stepUp||py-g>NPC_CFG.drop)ok=false;else py=g;
+    for(let d=.5*worldScale();d<=L&&ok;d+=.5*worldScale()){
+      const g=groundAt(p.x+nx*d,p.z+nz*d,py+1.3*worldScale(),4*worldScale());
+      if(g===null||g-py>NPC_CFG.stepUp*worldScale()||py-g>NPC_CFG.drop*worldScale())ok=false;else py=g;
     }
-    const ge=groundAt(x,z,py+1.3,4);
-    if(!ok||ge===null||Math.abs(ge-py)>NPC_CFG.stepUp)continue;
+    const ge=groundAt(x,z,py+1.3*worldScale(),4*worldScale());
+    if(!ok||ge===null||Math.abs(ge-py)>NPC_CFG.stepUp*worldScale())continue;
     npcAI.tx=x;npcAI.tz=z;return true;
   }
   return false;
@@ -707,11 +773,11 @@ function pickNpcTarget(){
 function moveOriginalNpc(dist,nx,nz){
   const p=npcPosition,rad=NPC_CFG.radius*npcScale();
   if(dist<1e-6)return 0;
-  if(npcWallAhead(p.x,p.y,p.z,nx,nz,rad+dist+.05))return 0;
+  if(npcWallAhead(p.x,p.y,p.z,nx,nz,rad+dist+.05*worldScale()))return 0;
   let gx=p.x+nx*dist,gz=p.z+nz*dist;
   if(activeMap?.home){const b=constrainHomePosition(gx,gz);gx=b.x;gz=b.z}
-  const g=groundAt(gx,gz,p.y+1.3,5);
-  if(g===null||g-p.y>NPC_CFG.stepUp||p.y-g>NPC_CFG.drop)return 0;
+  const g=groundAt(gx,gz,p.y+1.3*worldScale(),5*worldScale());
+  if(g===null||g-p.y>NPC_CFG.stepUp*worldScale()||p.y-g>NPC_CFG.drop*worldScale())return 0;
   const moved=Math.hypot(gx-p.x,gz-p.z);p.x=gx;p.z=gz;return moved;
 }
 function activeRaceBlockedEdges(now=performance.now()){
@@ -788,9 +854,9 @@ function updateOriginalNpc(dt,t){
   const p=npcPosition,ai=npcAI;if(!p||!npcRig.group)return;
   const sc=npcScale();
   const pdx=S.pos.x-p.x,pdz=S.pos.z-p.z,pd=Math.hypot(pdx,pdz),toPlayer=Math.atan2(pdx,pdz);
-  const racing=activeMapId==='after-rain'&&S.raceStarted&&!S.done;
+  const racing=!!activeMap?.race&&S.raceStarted&&!S.done;
   const hardRace=racing&&raceDifficulty==='hard';
-  const engaged=!racing&&(!!S.chat||pd<NPC_CFG.talkDist);
+  const engaged=!racing&&(!!S.chat||pd<NPC_CFG.talkDist*worldScale());
   if(ai.waveCd>0)ai.waveCd-=dt;
   if(engaged&&!ai.engaged&&!S.chat&&ai.waveCd<=0){ai.wave=2.2;ai.waveCd=15}   // melambai saat pemain mendekat
   ai.engaged=engaged;if(ai.wave>0)ai.wave-=dt;
@@ -804,14 +870,17 @@ function updateOriginalNpc(dt,t){
     if(target&&ai.racePath.length){
       if(ai.racePathIndex<ai.racePath.length){const n=raceGraph.nodes[ai.racePath[ai.racePathIndex]];waypoint=n;waypointKey=`node-${n.id}`}
       else{waypoint=target;waypointKey=`bowl-${target.id}`}
-      const dx=waypoint.x-p.x,dz=waypoint.z-p.z,L=Math.hypot(dx,dz),capture=Math.max(.72,raceGraph.gridStep*.2);
+      const dx=waypoint.x-p.x,dz=waypoint.z-p.z,L=Math.hypot(dx,dz),capture=Math.max(.72*worldScale(),raceGraph.gridStep*.2);
       if(L<capture&&ai.racePathIndex<ai.racePath.length){ai.racePathIndex++;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;waypoint=null}
     }else if(ai.raceBacktrack&&ai.racePath.length){
       if(ai.racePathIndex<ai.racePath.length){waypoint=raceGraph.nodes[ai.racePath[ai.racePathIndex]];waypointKey=`back-${waypoint.id}`;
-        if(Math.hypot(waypoint.x-p.x,waypoint.z-p.z)<Math.max(.72,raceGraph.gridStep*.2)){ai.racePathIndex++;ai.raceProgressTimer=0;waypoint=null}}
+        if(Math.hypot(waypoint.x-p.x,waypoint.z-p.z)<Math.max(.72*worldScale(),raceGraph.gridStep*.2)){ai.racePathIndex++;ai.raceProgressTimer=0;waypoint=null}}
     }
-    if(target&&Math.hypot(target.x-p.x,target.z-p.z)<CFG.pickup*.72&&Math.abs(target.y-p.y)<2){
-      target.got=true;bowlGroup.remove(target.m);S.originalGot++;updateScore();ai.raceTarget=null;ai.racePath=[];ai.racePathIndex=0;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;ai.raceSprinting=false;
+    if(target&&Math.hypot(target.x-p.x,target.z-p.z)<pickupRadius()*.72&&Math.abs(target.y-p.y)<2*worldScale()){
+      target.got=true;bowlGroup.remove(target.m);S.originalGot++;updateScore();ai.raceTarget=null;ai.racePath=[];ai.racePathIndex=0;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;ai.raceProgressKey='';ai.raceSprinting=false;ai.raceRetryAt=0;
+      // Pick the next bowl immediately after a successful pickup so the NPC
+      // cannot remain idle on a stale route/ retry delay.
+      if(S.got+S.originalGot<S.bowls.length)chooseRaceBowl();
       if(S.got+S.originalGot>=S.bowls.length)finishRace();
     }else if(waypoint){
       const dx=waypoint.x-p.x,dz=waypoint.z-p.z,L=Math.hypot(dx,dz),heading=Math.atan2(dx,dz),aligned=Math.abs(angDiff(ai.yaw,heading))<.7;
@@ -820,19 +889,23 @@ function updateOriginalNpc(dt,t){
       if(aligned){if(L<ai.raceProgressBest-Math.max(.015,ai.speed*dt*.4)){ai.raceProgressBest=L;ai.raceProgressTimer=0}else ai.raceProgressTimer+=dt}
       const sprintRange=target?Math.hypot(target.x-p.x,target.z-p.z):0;
       const sprintReserve=ai.raceSprinting?ai.raceStamina>12:ai.raceStamina>=48;
-      ai.raceSprinting=!!target&&!ai.raceBacktrack&&ai.raceSprintCooldown<=0&&sprintRange>(ai.raceSprinting?2.8:(hardRace?6.8:5.2))&&sprintReserve;
-      wantSpeed=aligned?(ai.raceBacktrack?NPC_CFG.raceWalk*sc:(ai.raceSprinting?NPC_CFG.raceRun:NPC_CFG.raceWalk)*sc):0;
+      ai.raceSprinting=!!target&&!ai.raceBacktrack&&ai.raceSprintCooldown<=0&&sprintRange>(ai.raceSprinting?2.8:(hardRace?6.8:5.2))*worldScale()&&sprintReserve;
+      wantSpeed=aligned?(ai.raceBacktrack?NPC_CFG.raceWalk*travelScale():(ai.raceSprinting?NPC_CFG.raceRun:NPC_CFG.raceWalk)*travelScale()):0;
       if(ai.raceProgressTimer>(hardRace ? 0.65 : 1.15)){ai.raceProgressTimer=0;if(!replanNpcRaceRoute())ai.raceSprinting=false}
     }else if(ai.raceBacktrack){wantSpeed=0;ai.raceSprinting=false}
     else{wantSpeed=0;ai.raceSprinting=false}
     ai.state='race';
   }else if(engaged){ai.state='talk';wantYaw=toPlayer;turnRate=7}
+  else if(activeMapId==='city'){
+    // Keep Original at the marked starting point until the race is accepted.
+    ai.state='idle';ai.timer=2;wantYaw=toPlayer;turnRate=2.5;
+  }
   else{
     if(ai.state==='talk'){ai.state='idle';ai.timer=1.5+Math.random()*2}
     if(ai.state==='idle'){
       ai.timer-=dt;
       if(Math.hypot(p.x-ai.anchor.x,p.z-ai.anchor.z)>npcLeash()+.5)ai.timer=Math.min(ai.timer,.3);
-      if(pd<NPC_CFG.seeDist){wantYaw=toPlayer;turnRate=2.5}      // menoleh pelan ke pemain
+      if(pd<NPC_CFG.seeDist*worldScale()){wantYaw=toPlayer;turnRate=2.5}      // menoleh pelan ke pemain
       else{
         ai.lookTimer-=dt;
         if(ai.lookTimer<=0){ai.lookTimer=2+Math.random()*3;ai.lookYaw=ai.yaw+(Math.random()-.5)*2.2}
@@ -846,7 +919,7 @@ function updateOriginalNpc(dt,t){
       else{
         wantYaw=Math.atan2(dx,dz);turnRate=6;
         const aligned=Math.abs(angDiff(ai.yaw,wantYaw))<.7;   // berbalik dulu, baru melangkah
-        wantSpeed=aligned?Math.min(NPC_CFG.walk,Math.max(.5,L*1.5))*sc:0;
+        wantSpeed=aligned?Math.min(NPC_CFG.walk,Math.max(.5,L*1.5))*travelScale():0;
       }
     }
   }
@@ -865,7 +938,7 @@ function updateOriginalNpc(dt,t){
   if(racing){
     const cooling=ai.raceSprintCooldown>0;
     if(cooling){ai.raceSprintCooldown=Math.max(0,ai.raceSprintCooldown-dt);ai.raceSprinting=false}
-    const actuallySprinting=ai.raceSprinting&&ai.speed>NPC_CFG.raceWalk*sc*1.08&&npcStep>0&&npcMoved>npcStep*.3;
+    const actuallySprinting=ai.raceSprinting&&ai.speed>NPC_CFG.raceWalk*travelScale()*1.08&&npcStep>0&&npcMoved>npcStep*.3;
     if(actuallySprinting){
       ai.raceStamina=Math.max(0,ai.raceStamina-34*dt);
       if(ai.raceStamina===0){ai.raceSprintCooldown=1.7;ai.raceSprinting=false}
@@ -873,9 +946,9 @@ function updateOriginalNpc(dt,t){
       ai.raceStamina=Math.min(100,ai.raceStamina+22*dt);
     }
   }
-  const gy=groundAt(p.x,p.z,p.y+1.3,8);
+  const gy=groundAt(p.x,p.z,p.y+1.3*worldScale(),8*worldScale());
   if(gy!==null)p.y=lerp(p.y,gy,1-Math.exp(-(gy>p.y?20:14)*dt));
-  const bob=poseOriginalNpc(dt,t,ai.speed/sc);
+  const bob=poseOriginalNpc(dt,t,ai.speed/travelScale());
   npcGroup.position.set(p.x,p.y+bob*sc,p.z);
   npcGroup.rotation.y=ai.yaw;
 }
@@ -903,11 +976,11 @@ function poseOriginalNpc(dt,t,speed){
   return Math.abs(Math.sin(r.phase))*.035*m;
 }
 function distanceToOriginal(){return npcPosition?Math.hypot(S.pos.x-npcPosition.x,S.pos.z-npcPosition.z):Infinity}
-function canInteractOriginal(){return !!npcPosition&&distanceToOriginal()<2.35&&!seated&&!S.done}
+function canInteractOriginal(){return !!npcPosition&&distanceToOriginal()<2.35*worldScale()&&!seated&&!S.done}
 function interactWithOriginal(){
   if(!canInteractOriginal())return;
   if(activeMap?.home){openChat();return}
-  if(activeMapId==='after-rain'){
+  if(activeMap?.race){
     if(!S.raceStarted){
       S.raceChallengePending=true;openChat();
       if(!S.raceChallengeShown){
@@ -935,15 +1008,18 @@ function clearBowls(){
 function placeBowls(cands,seed){
   clearBowls();
   const r=rng(seed||7);
-  const far=cands.filter(p=>Math.hypot(p.x-spawn.x,p.z-spawn.z)>10);
+  const spawnDistance=(activeMap?.bowlSpawnDistance??10)*worldScale(),spacing=(activeMap?.bowlSpacing??9)*worldScale(),count=activeMap?.bowlCount??CFG.bowls;
+  const far=cands.filter(p=>Math.hypot(p.x-spawn.x,p.z-spawn.z)>spawnDistance);
   const picked=[];
-  let pool=far.slice();
-  while(picked.length<CFG.bowls&&pool.length){
+  let pool=(far.length>=count?far:cands).slice(),requiredSpacing=spacing;
+  while(picked.length<count&&pool.length){
     let best=null,bd=-1;
     for(let k=0;k<40;k++){const c=pool[Math.floor(r()*pool.length)];
       let d=Math.hypot(c.x-spawn.x,c.z-spawn.z);for(const q of picked)d=Math.min(d,Math.hypot(c.x-q.x,c.z-q.z));
       if(d>bd){bd=d;best=c}}
-    if(!best||bd<9)break;picked.push(best);pool=pool.filter(p=>p!==best);
+    if(!best)break;
+    if(bd<requiredSpacing){requiredSpacing=requiredSpacing<1?0:requiredSpacing*.75;continue}
+    picked.push(best);pool=pool.filter(p=>p!==best);
   }
   for(const p of picked){const m=makeBowl();m.position.set(p.x,p.y+0.15,p.z);bowlGroup.add(m);S.bowls.push({id:S.bowls.length,m,x:p.x,y:p.y,z:p.z,got:false,ph:r()*6})}
   updateScore();
@@ -966,6 +1042,7 @@ function updateRaceStaminaHud(){
 const keys={};const joy={id:null,x:0,y:0,mag:0};let camDrag=null;
 addEventListener('keydown',e=>{
   if(S.chat){if(e.key==='Escape')closeChat();return}
+  if(e.code==='Space'){e.preventDefault();if(S.ready&&!e.repeat)S.jumpQueued=true;return}
   if((e.key==='e'||e.key==='E')&&canInteractOriginal()){e.preventDefault();interactWithOriginal();return}
   if((e.key==='e'||e.key==='E')&&canSitAtSofa()){e.preventDefault();sitOnSofa();return}
   if(e.key==='t'||e.key==='T'||e.key==='Enter'){e.preventDefault();openChat();return}
@@ -1018,8 +1095,58 @@ function readInput(){
 
 /* ---------- gerak + tabrakan ---------- */
 const mv=new THREE.Vector3();
+function updateCityVehicleBounds(dt){
+  if(cityVehicleRefresh<=0){
+    const elapsed=Math.max(0.016,0.06+cityVehicleRefresh);
+    for(const vehicle of cityVehicles){
+      const oldX=vehicle.center.x,oldZ=vehicle.center.z,hadBounds=!vehicle.bounds.isEmpty();
+      vehicle.bounds.setFromObject(vehicle.node);
+      if(!vehicle.bounds.isEmpty()){
+        vehicle.bounds.getCenter(vehicle.center);
+        vehicle.vx=hadBounds?(vehicle.center.x-oldX)/elapsed:0;
+        vehicle.vz=hadBounds?(vehicle.center.z-oldZ)/elapsed:0;
+      }
+    }
+    cityVehicleRefresh=0.06;
+  }else cityVehicleRefresh-=dt;
+  cityBumpCooldown=Math.max(0,cityBumpCooldown-dt);
+}
+function resolveCityVehicleCollision(x,z,fromX,fromZ,dt=1/60){
+  const radius=actorRadius(),height=1.72*actorScale();
+  if(radius<=0||!cityVehicles.length)return{x,z};
+  const moveX=x-fromX,moveZ=z-fromZ;let hitNormal=null,hitVehicle=null;
+  for(const vehicle of cityVehicles){
+    const b=vehicle.bounds;if(b.isEmpty()||S.pos.y>b.max.y+0.08||S.pos.y+height<b.min.y)continue;
+    const qx=clamp(x,b.min.x,b.max.x),qz=clamp(z,b.min.z,b.max.z);
+    let dx=x-qx,dz=z-qz,d=Math.hypot(dx,dz),nx=0,nz=0,depth=0;
+    if(d>1e-5){if(d>=radius)continue;nx=dx/d;nz=dz/d;depth=radius-d}
+    else{
+      // If the character center crossed into the vehicle box, push it out
+      // through the nearest side of the radius-expanded box.
+      const sides=[{depth:x-(b.min.x-radius),nx:-1,nz:0},{depth:b.max.x+radius-x,nx:1,nz:0},
+        {depth:z-(b.min.z-radius),nx:0,nz:-1},{depth:b.max.z+radius-z,nx:0,nz:1}].sort((a,c)=>a.depth-c.depth);
+      ({depth,nx,nz}=sides[0]);
+    }
+    x+=nx*(depth+0.025);z+=nz*(depth+0.025);hitNormal={x:nx,z:nz};hitVehicle=vehicle;
+  }
+  if(hitNormal){
+    const impact=-((moveX/Math.max(dt,1/120)-hitVehicle.vx)*hitNormal.x+(moveZ/Math.max(dt,1/120)-hitVehicle.vz)*hitNormal.z);
+    if(impact>0.002&&cityBumpCooldown<=0){
+      const impulse=clamp(2.8+impact*18,2.8,6.5);
+      knockbackX=hitNormal.x*impulse;knockbackZ=hitNormal.z*impulse;
+      cityBumpCooldown=0.22;S.speed=Math.min(S.speed,0.25);
+    }
+  }
+  return{x,z};
+}
 function step(dt){
-  if(S.chat||S.done){S.speed=lerp(S.speed,0,1-Math.exp(-12*dt));S.sprinting=false;return}
+  if(S.chat||S.done){S.jumpQueued=false;S.speed=lerp(S.speed,0,1-Math.exp(-12*dt));S.sprinting=false;return}
+  if(cityVehicles.length)updateCityVehicleBounds(dt);
+  if(cityBumpCooldown>0||Math.abs(knockbackX)+Math.abs(knockbackZ)>0.05){
+    S.pos.x+=knockbackX*dt;S.pos.z+=knockbackZ*dt;
+    const damp=Math.exp(-7*dt);knockbackX*=damp;knockbackZ*=damp;
+    if(Math.abs(knockbackX)+Math.abs(knockbackZ)<0.05)knockbackX=knockbackZ=0;
+  }
   const inp=readInput();
   let sprinting=inp.run;
   if(S.mode==='race'&&S.raceStarted){
@@ -1034,7 +1161,7 @@ function step(dt){
   const sy=Math.sin(S.camYaw),cy=Math.cos(S.camYaw);
   // maju = menjauhi kamera, kanan = (cos,-sin)
   mv.set(-sy*inp.y+cy*inp.x,0,-cy*inp.y-sy*inp.x);
-  const want=inp.active?(sprinting?CFG.run:CFG.walk*Math.max(.45,inp.analog)):0;
+  const want=inp.active?(sprinting?CFG.run*travelScale():CFG.walk*travelScale()*Math.max(.45,inp.analog)):0;
   S.speed=lerp(S.speed,want,1-Math.exp(-(want>S.speed?9:14)*dt));
   if(inp.active&&mv.lengthSq()>1e-4){
     mv.normalize();
@@ -1045,13 +1172,13 @@ function step(dt){
     for(let pass=0;pass<2;pass++){
       const L=Math.hypot(dx,dz);if(L<1e-6)break;
       const nx=dx/L,nz=dz/L;let hit=null;
-      for(const hh of[0.45,1.1]){const h=cast(p.x,p.y+hh,p.z,nx,0,nz,CFG.radius+L);
+      for(const hh of[0.45,1.1]){const h=cast(p.x,p.y+hh*actorScale(),p.z,nx,0,nz,actorRadius()+L);
         if(h&&h.face&&Math.abs(h.face.normal.y)<0.75){if(!hit||h.distance<hit.distance)hit=h}}
       if(!hit)break;
       _n.copy(hit.face.normal);_n.y=0;if(_n.lengthSq()<1e-6)break;_n.normalize();
       const dot=dx*_n.x+dz*_n.z;
       if(dot<0){dx-=_n.x*dot;dz-=_n.z*dot}
-      if(hit.distance<CFG.radius){const push=CFG.radius-hit.distance;dx+=_n.x*push*.6;dz+=_n.z*push*.6}
+      if(hit.distance<actorRadius()){const push=actorRadius()-hit.distance;dx+=_n.x*push*.6;dz+=_n.z*push*.6}
     }
     let gx=p.x+dx,gz=p.z+dz;
     if(S.mode==='home'&&!canExploreHome(gx,gz)){
@@ -1059,15 +1186,29 @@ function step(dt){
       if(canX)gz=p.z;else if(canZ)gx=p.x;else{gx=p.x;gz=p.z}
       dx=gx-p.x;dz=gz-p.z;
     }
-    const g=groundAt(gx,gz,p.y+1.3,5);
-    if(g!==null&&g-p.y<=CFG.stepUp&&(S.mode==='home'||g>groundLevel-6)){p.x=gx;p.z=gz}
+    if(cityVehicles.length){const resolved=resolveCityVehicleCollision(gx,gz,p.x,p.z,dt);gx=resolved.x;gz=resolved.z;dx=gx-p.x;dz=gz-p.z}
+    const g=groundAt(gx,gz,p.y+1.3*worldScale(),5*worldScale());
+    if(g!==null&&g-p.y<=CFG.stepUp*worldScale()&&(S.mode==='home'||g>groundLevel-6*worldScale())){p.x=gx;p.z=gz}
     else{ // coba geser satu sumbu
-      const g1=groundAt(p.x+dx,p.z,p.y+1.3,5),g2=groundAt(p.x,p.z+dz,p.y+1.3,5);
-      if(g1!==null&&g1-p.y<=CFG.stepUp)p.x+=dx;else if(g2!==null&&g2-p.y<=CFG.stepUp)p.z+=dz;
+      const g1=groundAt(p.x+dx,p.z,p.y+1.3*worldScale(),5*worldScale()),g2=groundAt(p.x,p.z+dz,p.y+1.3*worldScale(),5*worldScale());
+      if(g1!==null&&g1-p.y<=CFG.stepUp*worldScale())p.x+=dx;else if(g2!==null&&g2-p.y<=CFG.stepUp*worldScale())p.z+=dz;
     }
   }
-  const gy=groundAt(S.pos.x,S.pos.z,S.pos.y+1.3,8);
-  if(gy!==null){S.pos.y=gy>S.pos.y?lerp(S.pos.y,gy,1-Math.exp(-20*dt)):lerp(S.pos.y,gy,1-Math.exp(-14*dt))}
+  const gy=groundAt(S.pos.x,S.pos.z,S.pos.y+Math.max(1.3*worldScale(),1.72*actorScale()),8*worldScale());
+  S.onGround=gy!==null&&Math.abs(gy-S.pos.y)<0.18;
+  if(S.jumpQueued&&S.onGround&&!S.isJumping){const jumpScale=Math.sqrt(worldScale()*actorScale());S.jumpVelocity=4.2*jumpScale;S.isJumping=true;S.onGround=false}
+  S.jumpQueued=false;
+  if(S.isJumping){
+    S.pos.y+=S.jumpVelocity*dt;S.jumpVelocity-=11*Math.sqrt(worldScale()*actorScale())*dt;
+    if(gy!==null&&S.pos.y<=gy&&S.jumpVelocity<0){S.pos.y=gy;S.jumpVelocity=0;S.isJumping=false;S.onGround=true}
+  }else if(gy!==null){
+    S.pos.y=gy>S.pos.y?lerp(S.pos.y,gy,1-Math.exp(-20*dt)):lerp(S.pos.y,gy,1-Math.exp(-14*dt));
+    S.onGround=Math.abs(S.pos.y-gy)<0.12;
+  }
+  if(cityVehicles.length){
+    const resolved=resolveCityVehicleCollision(S.pos.x,S.pos.z,S.pos.x,S.pos.z,dt);
+    S.pos.x=resolved.x;S.pos.z=resolved.z;
+  }
   if(S.mode==='home'){
     const bounded=constrainHomePosition(S.pos.x,S.pos.z);
     S.pos.x=bounded.x;S.pos.z=bounded.z;
@@ -1077,7 +1218,7 @@ function step(dt){
 /* ---------- kamera ---------- */
 const camT=new THREE.Vector3(),camP=new THREE.Vector3();
 function updateCamera(dt){
-  camT.set(S.pos.x,S.pos.y+1.35,S.pos.z);
+  camT.set(S.pos.x,S.pos.y+1.35*actorScale(),S.pos.z);
   const cp=Math.cos(S.camPitch),sp=Math.sin(S.camPitch);
   _d.set(Math.sin(S.camYaw)*cp,sp,Math.cos(S.camYaw)*cp);
   let dist=S.camDist;
@@ -1089,7 +1230,7 @@ function updateCamera(dt){
     camP.z=clamp(camP.z,HOME_ZONE.minZ+0.2,HOME_ZONE.cameraMaxZ-0.2);
   }
   // jangan tembus tanah
-  const gy=groundAt(camP.x,camP.z,camP.y+2,6);if(gy!==null&&camP.y<gy+0.35)camP.y=gy+0.35;
+  const gy=groundAt(camP.x,camP.z,camP.y+2*worldScale(),6*worldScale());if(gy!==null&&camP.y<gy+0.35*worldScale())camP.y=gy+0.35*worldScale();
   camera.position.lerp(camP,1-Math.exp(-(h?30:18)*dt));
   if(activeMap?.home){
     camera.position.x=clamp(camera.position.x,HOME_ZONE.minX+0.2,HOME_ZONE.maxX-0.2);
@@ -1223,11 +1364,12 @@ let last=performance.now(),clock=0,cands=[];
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(0.05,(now-last)/1000);last=now;clock+=dt;
+  if(activeMapMixer)activeMapMixer.update(dt);
   if(!S.ready){sitPrompt.hidden=true;interactPrompt.hidden=true;renderer.render(scene,camera);return}
   step(dt);
   const nearOriginal=canInteractOriginal();
   interactPrompt.hidden=!nearOriginal;
-  const interaction=activeMap?.home?'Ngobrol dengan Original':activeMapId==='after-rain'?(S.raceStarted?'Lihat skor balapan':'Dengar tantangan Original'):!S.questStarted?'Mulai misi bersama Original':S.questReady?'Serahkan mie ke Original':'Bicara dengan Original';
+  const interaction=activeMap?.home?'Ngobrol dengan Original':activeMap?.race?(S.raceStarted?'Lihat skor balapan':'Bicara dengan Original untuk mulai balapan'):!S.questStarted?'Mulai misi bersama Original':S.questReady?'Serahkan mie ke Original':'Bicara dengan Original';
   interactPrompt.textContent=isTouch?'💬 '+interaction:'E · '+interaction;
   sitPrompt.hidden=nearOriginal||!canSitAtSofa();
   player.rotation.y=S.face;
@@ -1247,10 +1389,13 @@ function frame(now){
     b.m.rotation.y+=dt*1.6;b.m.position.y=b.y+0.15+Math.sin(clock*2+b.ph)*0.08;
     const d=Math.hypot(b.x-S.pos.x,b.z-S.pos.z);
     if(d<nd){nd=d;nearest=b}
-    if(S.mode==='race'&&S.raceStarted&&d<CFG.pickup&&Math.abs(b.y-S.pos.y)<2){
+  if(activeMapId==='city'&&S.mode==='race'&&!S.raceStarted&&d<pickupRadius()&&performance.now()>cityRacePickupHintAt){
+      say('Mie belum bisa diambil: dekati Original, tekan E, lalu pilih Terima tantangan untuk memulai balapan.',4200);cityRacePickupHintAt=performance.now()+5000;
+    }
+    if(S.mode==='race'&&S.raceStarted&&d<pickupRadius()&&Math.abs(b.y-S.pos.y)<2*worldScale()){
       b.got=true;bowlGroup.remove(b.m);S.got++;updateScore();
       if(S.got+S.originalGot>=S.bowls.length)finishRace();
-    }else if(S.mode!=='race'&&S.questStarted&&!S.questReady&&d<CFG.pickup&&Math.abs(b.y-S.pos.y)<2){
+    }else if(S.mode!=='race'&&S.questStarted&&!S.questReady&&d<pickupRadius()&&Math.abs(b.y-S.pos.y)<2*worldScale()){
       b.got=true;bowlGroup.remove(b.m);S.got++;updateScore();
       if(S.got===S.bowls.length){S.questReady=true;S.running=false;say('Semua mie sudah terkumpul! Kembali ke Original untuk menyelesaikan misi.')}
       else say(LINES_GOT[Math.floor(Math.random()*LINES_GOT.length)]);
@@ -1284,9 +1429,9 @@ function finishRace(){
 }
 function startRun(seed){
   seated=false;seatCameraReturn=null;
-  S.pos.copy(spawn);S.face=Math.PI;S.camYaw=0;S.camPitch=.32;S.speed=0;S.done=false;S.t0=0;S.questStarted=false;S.questReady=false;S.raceStarted=false;S.raceChallengePending=false;S.raceChallengeShown=false;S.stamina=100;S.sprintCooldown=0;S.sprinting=false;S.originalGot=0;
+  S.pos.copy(spawn);S.face=activeMapId==='city'?citySpawnFace:Math.PI;S.camYaw=activeMapId==='city'?Math.atan2(-Math.sin(citySpawnFace),-Math.cos(citySpawnFace)):0;S.camPitch=.32;S.camDist=activeMap?.cameraDist??CFG.camDist;S.speed=0;S.jumpQueued=false;S.jumpVelocity=0;S.isJumping=false;S.onGround=true;S.done=false;S.t0=0;S.questStarted=false;S.questReady=false;S.raceStarted=false;S.raceChallengePending=false;S.raceChallengeShown=false;S.stamina=100;S.sprintCooldown=0;S.sprinting=false;S.originalGot=0;
   $('#timer').textContent='0:00';
-  S.mode=activeMap?.home?'home':activeMapId==='after-rain'?'race':'collect';
+  S.mode=activeMap?.home?'home':activeMap?.race?'race':'collect';
   if(S.mode==='home'){clearBowls();S.running=false;updateScore()}
   else{S.running=false;placeBowls(cands,seed)}
   if(npcPosition&&!activeMap?.home){
@@ -1298,14 +1443,14 @@ function startRun(seed){
   if(S.mode==='race')updateRaceStaminaHud();
   if(S.mode==='race')setRaceModeStatus(raceModeLabel());
   $('#compass').style.display=S.mode==='home'?'none':'flex';
-  $('#hint').textContent=S.mode==='home'?'Free roam di rumah · WASD / panah: jalan · Shift: lari · E: duduk / ngobrol dengan Original · T: ngobrol':S.mode==='race'?'Balapan mie · Bicara lalu terima tantangan Original · Shift: lari (stamina)':'WASD / panah: jalan · Shift: lari · E: bicara dengan Original · T: ngobrol';
+  $('#hint').textContent=activeMapId==='city'?'City · E: bicara dengan Original, lalu terima balapan · Space: lompat · Shift: lari':S.mode==='home'?'Free roam di rumah · WASD / panah: jalan · Shift: lari · E: duduk / ngobrol dengan Original · T: ngobrol':S.mode==='race'?'Balapan mie · Bicara lalu terima tantangan Original · Shift: lari (stamina)':'WASD / panah: jalan · Shift: lari · E: bicara dengan Original · T: ngobrol';
   $('#win h2').textContent=S.mode==='race'?'Balapan selesai! 🏁':'Misi selesai! 🎉';
   $('#win').classList.remove('on');
-  camera.position.set(spawn.x,spawn.y+3,spawn.z+CFG.camDist);
+  camera.position.set(spawn.x,spawn.y+3*actorScale(),spawn.z+S.camDist);
 }
 $('#again').addEventListener('click',()=>startRun(Math.floor(Math.random()*1e6)));
 const mapSelect=$('#mapSelect'),mapContinue=$('#mapContinue');
-let mapPauseStarted=0,mapWasRunning=false,aiLoadStarted=false,selectedRaceDifficulty='normal';
+let mapPauseStarted=0,mapWasRunning=false,aiLoadStarted=false,selectedRaceDifficulty='normal',selectedRaceMap='after-rain';
 function openMapSelect(){
   if(S.chat)closeChat();
   mapWasRunning=S.running;mapPauseStarted=performance.now();S.running=false;S.ready=false;
@@ -1332,28 +1477,31 @@ for(const button of document.querySelectorAll('[data-difficulty]'))button.addEve
   for(const card of document.querySelectorAll('[data-difficulty]'))card.setAttribute('aria-pressed',String(card.dataset.difficulty===selectedRaceDifficulty));
 });
 for(const button of document.querySelectorAll('[data-map]'))button.addEventListener('click',()=>{
-  if(button.dataset.map==='after-rain'){
-    selectedRaceDifficulty=activeMapId==='after-rain'?raceDifficulty:'normal';
+  if(isRaceMap(button.dataset.map)){
+    selectedRaceMap=button.dataset.map;
+    selectedRaceDifficulty=isRaceMap(activeMapId)?raceDifficulty:'normal';
+    $('#raceDifficultyPanel h2').textContent=`Pilih Kesulitan Balapan · ${MAPS[selectedRaceMap].name}`;
+    $('#raceDifficultyNote').textContent=selectedRaceMap==='city'?'City menyebarkan mie lebih jauh; Hard membuat Original bereaksi lebih cepat. Semua logika berjalan lokal.':'Mode Hard berjalan sepenuhnya lokal tanpa koneksi atau API key.';
     for(const card of document.querySelectorAll('[data-difficulty]'))card.setAttribute('aria-pressed',String(card.dataset.difficulty===selectedRaceDifficulty));
     $('#raceDifficultyPanel').hidden=false;return;
   }
   $('#raceDifficultyPanel').hidden=true;activateMap(button.dataset.map);
 });
 $('#startRaceMap').addEventListener('click',()=>{
-  $('#raceDifficultyPanel').hidden=true;activateMap('after-rain',selectedRaceDifficulty);
+  $('#raceDifficultyPanel').hidden=true;activateMap(selectedRaceMap,selectedRaceDifficulty);
 });
 let activeMapId='campus';
 async function activateMap(id,difficulty=raceDifficulty){
   const next=MAPS[id];if(!next)return;
-  const previousDifficulty=raceDifficulty;if(id==='after-rain')raceDifficulty=difficulty==='hard'?'hard':'normal';
+  const previousDifficulty=raceDifficulty;if(next.race)raceDifficulty=difficulty==='hard'?'hard':'normal';
   if(activeMap?.url===next.url&&installedCharacter===selectedCharacter){
-    closeMapSelect();if(id==='after-rain'&&previousDifficulty!==raceDifficulty)startRun(11);return;
+    closeMapSelect();if(next.race&&previousDifficulty!==raceDifficulty)startRun(11);return;
   }
   let replacedMap=false;
   S.ready=false;S.running=false;$('#mapError').textContent='';mapSelect.classList.add('hidden');
   $('#load').style.display='grid';$('#load').classList.remove('off');
   $('#lmsg').textContent=`Memuat ${next.name}…`;$('#load h1').innerHTML=`INDOMIE<em>VERSE</em> 3D`;
-  $('#load p').textContent=next.home?'Free roam di interior bersama Original':id==='after-rain'?'Balapan mie melawan Original':'Jalan-jalan dan kumpulkan mie bersama Original';
+  $('#load p').textContent=next.home?'Free roam di interior bersama Original':next.race?'Balapan mie melawan Original':'Jalan-jalan dan kumpulkan mie bersama Original';
   prog.a=characterGltf?1:0;prog.b=0;setProg();
   try{
     const originalPromise=characterGltf?Promise.resolve(characterGltf):loadGLB(CFG.charUrl,'a').then(g=>{characterGltf=g;return g});
@@ -1364,7 +1512,8 @@ async function activateMap(id,difficulty=raceDifficulty){
     $('#lmsg').textContent='Menyiapkan environment…';
     await new Promise(r=>setTimeout(r,30));
     disposeMap();clearBowls();activeMap=null;replacedMap=true;
-    buildMap(mg);
+    buildMap(mg,next);
+    activeMap=next;activeMapId=id;
     if(next.home)buildHomeGlass();
     if(installedCharacter!==selectedCharacter)installPlayerCharacter(selectedCharacter,og,selectedCharacter==='mavuika'?pg:null);
     let sp;
@@ -1380,11 +1529,12 @@ async function activateMap(id,difficulty=raceDifficulty){
       const requestedSpawn=new URLSearchParams(location.search).get('spawn');
       sp=requestedSpawn?cands[Math.min(cands.length-1,Math.max(0,+requestedSpawn||0))]:cands[0];
     }
-    spawn.set(sp.x,sp.y,sp.z);activeMap=next;activeMapId=id;
-    raceGraph=id==='after-rain'?buildRaceGraph(cands,walkableGridStep()):null;
+    spawn.set(sp.x,sp.y,sp.z);
+    raceGraph=next.race?buildRaceGraph(cands,walkableGridStep()):null;
     placeOriginalNpc(og,next,cands);
     if(next.home)SOFA_SEAT.y=sp.y;
-    player.scale.setScalar(rig.baseScale*(next.home?0.82:1));
+    player.scale.setScalar(rig.baseScale*(next.home?0.82:(next.characterScale??1)));
+    shadow.scale.setScalar(next.characterScale??1);
     camera.far=next.home?120:700;camera.updateProjectionMatrix();
     S.ready=true;startRun(11);
     $('#mapError').textContent='';
