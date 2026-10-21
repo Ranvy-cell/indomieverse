@@ -13,6 +13,13 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-actio
 .hud{position:fixed;z-index:5;pointer-events:none}
 .pill{background:rgba(22,19,15,.78);border:1px solid var(--line);border-radius:999px;padding:7px 14px;backdrop-filter:blur(6px);font-weight:700;display:flex;gap:8px;align-items:center;white-space:nowrap}
 #hudL{top:calc(12px + var(--sat));left:calc(12px + var(--sal));display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.stamina-hud{width:min(244px,calc(100vw - 28px));padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(22,19,15,.84);backdrop-filter:blur(6px);display:grid;gap:7px;font-size:11px;font-weight:700}
+.stamina-hud[hidden]{display:none}
+.stamina-row{display:grid;grid-template-columns:52px 1fr 40px;align-items:center;gap:7px}
+.stamina-track{height:8px;background:#3a3025;border-radius:99px;overflow:hidden}
+.stamina-track i{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#8fd46b,#d6f27b);transition:width .12s linear}
+.stamina-row.original .stamina-track i{background:linear-gradient(90deg,#e78a34,#f5b81c)}
+.stamina-row small{font-size:10px;color:var(--mute);text-align:right}
 #hudR{top:calc(12px + var(--sat));right:calc(12px + var(--sar));pointer-events:auto}
 #hudR a{color:var(--cream);text-decoration:none}
 #compass{top:calc(12px + var(--sat));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px}
@@ -31,6 +38,13 @@ background:#fff8e8;color:#241a10;border:2px solid var(--yel);border-radius:16px;
 #chatBtn{position:fixed;z-index:6;right:calc(14px + var(--sar));bottom:calc(14px + var(--sab));pointer-events:auto;border:2px solid var(--yel);background:rgba(22,19,15,.85);color:var(--cream);border-radius:999px;padding:10px 18px;font:700 15px system-ui;cursor:pointer}
 .touch #chatBtn{bottom:calc(98px + var(--sab));width:64px;height:64px;padding:0;font-size:26px;border-radius:50%}
 .touch #chatBtn span{display:none}
+#sitPrompt{position:fixed;z-index:7;left:50%;bottom:calc(84px + var(--sab));transform:translateX(-50%);border:2px solid var(--yel);border-radius:999px;background:rgba(22,19,15,.9);color:var(--cream);padding:11px 18px;font:700 15px system-ui;white-space:nowrap;cursor:pointer;box-shadow:0 6px 24px #0008}
+#sitPrompt[hidden]{display:none}
+#sitPrompt kbd{margin-left:8px;padding:2px 7px;border:1px solid var(--line);border-radius:6px;color:var(--yel);font:700 12px system-ui}
+#interactPrompt{position:fixed;z-index:7;left:50%;bottom:calc(84px + var(--sab));transform:translateX(-50%);border:2px solid var(--yel);border-radius:999px;background:rgba(22,19,15,.92);color:var(--cream);padding:11px 18px;font:700 15px system-ui;white-space:nowrap;cursor:pointer;box-shadow:0 6px 24px #0008}
+#interactPrompt[hidden]{display:none}
+.touch #sitPrompt,.touch #interactPrompt{bottom:calc(168px + var(--sab));font-size:14px}
+.touch #sitPrompt kbd{display:none}
 #joy{position:fixed;z-index:4;width:120px;height:120px;border-radius:50%;border:2px solid rgba(245,234,211,.45);background:rgba(245,234,211,.08);display:none;pointer-events:none;transform:translate(-50%,-50%)}
 #joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(245,184,28,.85);border:2px solid #fff8}
 #load{position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 50% 35%,#2b241b,#16130f 70%);display:grid;place-items:center;text-align:center;padding:24px;transition:opacity .5s}
@@ -54,6 +68,11 @@ background:#fff8e8;color:#241a10;border:2px solid var(--yel);border-radius:16px;
 #cform{display:flex;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--line)}
 #cin{flex:1;min-width:0;background:#120f0b;border:1px solid var(--line);color:var(--cream);border-radius:12px;padding:11px 12px;font:inherit;font-size:16px}
 #csend{background:var(--red);color:#fff;border:0;border-radius:12px;padding:0 18px;font:700 15px system-ui;cursor:pointer}
+#raceChallenge{padding:8px 14px 12px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+#raceChallenge[hidden]{display:none}
+#raceChallenge span{font-size:13px;color:var(--mute)}
+#raceAccept{flex:none;border:0;border-radius:12px;background:var(--yel);color:#241a10;padding:10px 14px;font:800 14px system-ui;cursor:pointer}
+#raceModeStatus[hidden]{display:none}
 #win{position:fixed;inset:0;z-index:15;background:#000a;display:none;place-items:center;padding:20px}
 #win.on{display:grid}
 #win div{background:var(--s1);border:2px solid var(--yel);border-radius:20px;padding:24px;max-width:380px;text-align:center}
@@ -67,37 +86,70 @@ background:#fff8e8;color:#241a10;border:2px solid var(--yel);border-radius:16px;
 .map-panel{width:min(900px,100%);padding:clamp(20px,5vw,42px);background:rgba(32,27,21,.94);border:1px solid var(--line);border-radius:24px;box-shadow:0 24px 80px #0008}
 .map-panel h1{margin:0;font-size:clamp(28px,5vw,42px);line-height:1.1}.map-panel>p{color:var(--mute);margin:8px 0 24px}
 #mapError{color:#ff8a80;min-height:0}.map-panel>#mapError:empty{display:none}
-.map-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.map-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.character-select{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 6px}
+.character-card{padding:12px 14px;text-align:left;border:1px solid var(--line);border-radius:12px;background:#17130f;color:var(--cream);font:inherit;cursor:pointer}
+.character-card[aria-pressed=true]{border-color:var(--yel);box-shadow:inset 0 0 0 1px var(--yel);background:#2b241b}
+.character-card strong,.character-card span{display:block}.character-card span{font-size:12px;color:var(--mute);margin-top:3px}
 .map-card{min-height:150px;text-align:left;padding:18px;border:1px solid var(--line);border-radius:16px;background:#17130f;color:var(--cream);font:inherit;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
 .map-card:hover,.map-card:focus-visible{transform:translateY(-3px);border-color:var(--yel);background:#2b241b;outline:none}
 .map-card strong{display:block;font-size:19px;margin-bottom:7px}.map-card span{display:block;color:var(--mute);font-size:13px}
+#raceDifficultyPanel{grid-column:1/-1;padding:16px;border:1px solid var(--line);border-radius:16px;background:#17130f}
+#raceDifficultyPanel[hidden]{display:none}
+#raceDifficultyPanel h2{margin:0 0 10px;font-size:18px}
+#raceDifficultyOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.difficulty-card{padding:12px;text-align:left;border:1px solid var(--line);border-radius:12px;background:#201b15;color:var(--cream);font:inherit;cursor:pointer}
+.difficulty-card[aria-pressed=true]{border-color:var(--yel);box-shadow:inset 0 0 0 1px var(--yel)}
+.difficulty-card strong,.difficulty-card span{display:block}.difficulty-card span{font-size:12px;color:var(--mute);margin-top:4px}
+#raceDifficultyNote{margin:10px 0;color:var(--mute);font-size:12px}
+#startRaceMap{padding:10px 16px;border:0;border-radius:12px;background:var(--yel);color:#241a10;font:800 14px system-ui;cursor:pointer}
+.asset-credit{font-size:11px;line-height:1.5}.asset-credit a{color:var(--yel)}
 #mapContinue{display:block;margin:18px auto 0;padding:10px 18px;border:1px solid var(--line);border-radius:12px;background:#2b241b;color:var(--cream);font:700 14px system-ui;cursor:pointer}
 #mapContinue[hidden]{display:none}
 #mapBtn{border:0;background:none;color:var(--cream);font:700 14px system-ui;cursor:pointer;padding:0}
-@media(max-width:700px){.map-grid{grid-template-columns:1fr}.map-card{min-height:0;padding:15px}}
+@media(max-width:700px){.map-grid{grid-template-columns:1fr}.character-select,#raceDifficultyOptions{grid-template-columns:1fr}.map-card{min-height:0;padding:15px}}
 </style></head>
 <body>
 <canvas id="c" tabindex="0" aria-label="Dunia 3D"></canvas>
 
 <div id="load"><div><h1>INDOMIE<em>VERSE</em> 3D</h1><p>Jalan-jalan bareng Original di kampus</p><div id="lbar"><i></i></div><div id="lmsg">Memuat…</div></div></div>
 
-<div id="mapSelect"><div class="map-panel"><h1>Pilih Environment</h1><p>Pilih tempat untuk dijelajahi bersama Original.</p><p id="mapError" role="status"></p><div class="map-grid">
+<div id="mapSelect"><div class="map-panel"><h1>Pilih Environment</h1><p>Pilih karakter pemain, lalu pilih map yang ingin dijelajahi.</p><p id="mapError" role="status"></p><div class="map-grid">
+  <div class="character-select" role="group" aria-label="Pilih karakter pemain">
+    <button class="character-card" data-character="original" aria-pressed="true"><strong>Original</strong><span>Model pertama · rambut cokelat</span></button>
+    <button class="character-card" data-character="mavuika" aria-pressed="false"><strong>Mavuika</strong><span>Agen Pedas · karakter pemain</span></button>
+  </div>
   <button class="map-card" data-map="campus"><strong>Map 1 · Campus</strong><span>Jelajahi kampus dan kumpulkan mangkuk mie.</span></button>
-  <button class="map-card" data-map="postwar"><strong>Map 2 · Post-war City</strong><span>Kota pascaperang dengan misi koleksi mie.</span></button>
+  <button class="map-card" data-map="after-rain"><strong>Map 2 · After the Rain</strong><span>Balapan mengumpulkan mie melawan Original setelah berbicara dengannya.</span></button>
   <button class="map-card" data-map="home"><strong>Mode Home</strong><span>Free roam di interior loft.</span></button>
-</div><button id="mapContinue" hidden>Kembali ke permainan</button></div></div>
+  <section id="raceDifficultyPanel" hidden aria-label="Kesulitan balapan">
+    <h2>Pilih Kesulitan Balapan</h2>
+    <div id="raceDifficultyOptions" role="group" aria-label="Kesulitan">
+      <button class="difficulty-card" type="button" data-difficulty="normal" aria-pressed="true"><strong>Normal</strong><span>Kecepatan standar; Original memilih target lewat rute lokal.</span></button>
+      <button class="difficulty-card" type="button" data-difficulty="hard" aria-pressed="false"><strong>Hard · Strategi</strong><span>Kecepatanmu tetap normal; Original bereaksi dan merencanakan rute lebih cepat.</span></button>
+    </div>
+    <p id="raceDifficultyNote">Mode Hard berjalan sepenuhnya lokal tanpa koneksi atau API key.</p>
+    <button id="startRaceMap" type="button">Mulai Balapan</button>
+  </section>
+</div><p class="asset-credit">Map After the Rain diadaptasi dari “After the rain... - VR &amp; Sound” oleh Aurélien Martel. <a href="https://sketchfab.com/3d-models/after-the-rain-vr-sound-a1177381d3464f75b10cb8f462f0b9a5" target="_blank" rel="noopener">Sumber model</a> · <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>.</p><button id="mapContinue" hidden>Kembali ke permainan</button></div></div>
 
-<div class="hud" id="hudL"><div class="pill">🍜 <span id="score">0/0</span></div><div class="pill">⏱ <span id="timer">0:00</span></div></div>
+<div class="hud" id="hudL"><div class="pill">🍜 <span id="score">0/0</span></div><div class="pill">⏱ <span id="timer">0:00</span></div><div class="stamina-hud" id="raceStamina" hidden>
+  <div class="stamina-row"><span>Kamu</span><div class="stamina-track" role="progressbar" aria-label="Stamina lari pemain" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="playerStaminaFill"></i></div><small id="playerSprintStatus">Siap</small></div>
+  <div class="stamina-row original"><span>Original</span><div class="stamina-track" role="progressbar" aria-label="Stamina lari Original" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="npcStaminaFill"></i></div><small id="npcSprintStatus">Siap</small></div>
+</div><div class="pill" id="raceModeStatus" hidden aria-live="polite">Normal · strategi lokal</div></div>
 <div class="hud" id="hudR"><div class="pill"><button id="mapBtn" type="button">🗺 Ganti Map</button><a href="index.html">← Beranda</a></div></div>
 <div class="hud" id="compass"><svg id="arrow" viewBox="0 0 40 40"><path d="M20 3 L33 33 L20 26 L7 33 Z" fill="#f5b81c" stroke="#241a10" stroke-width="2" stroke-linejoin="round"/></svg><div id="dist">—</div></div>
 <div class="hud" id="bubble"></div>
 <div class="hud" id="hint">WASD / panah: jalan · Shift: lari · seret mouse: putar kamera · T: ngobrol</div>
 <div id="joy"><i></i></div>
+<button id="sitPrompt" hidden>🛋️ Duduk &amp; ngobrol <kbd>E</kbd></button>
+<button id="interactPrompt" hidden>E · Bicara dengan Original</button>
 <button id="chatBtn" aria-label="Ngobrol dengan Original">💬 <span>Ngobrol</span></button>
 
 <section id="chat" aria-label="Chat dengan Original">
   <div id="chead"><div style="font-size:26px">🍜</div><strong>Original<small>The Loyal Companion</small></strong><button id="cx" aria-label="Tutup chat">✕</button></div>
   <div id="msgs"></div>
+  <div id="raceChallenge" hidden><span>Mau adu cepat kumpulkan mie?</span><button id="raceAccept" type="button">Terima tantangan 🏁</button></div>
   <form id="cform" autocomplete="off"><input id="cin" placeholder="Ketik pesan untuk Original…" maxlength="400"><button id="csend" type="submit">Kirim</button></form>
 </section>
 
@@ -120,14 +172,28 @@ if(isTouch)document.documentElement.classList.add('touch');
 /* ---------- konfigurasi ---------- */
 const CFG={
   charUrl:'assets/original-character.v1.glb',
+  mavuikaUrl:'assets/mavuika-agent-pedas.v1.glb',
   walk:2.3, run:5.4, radius:0.35, stepUp:0.45, bowls:10, pickup:1.2,
   camDist:4.6, camMin:1.6, camMax:9
 };
 const MAPS={
   campus:{name:'Campus',url:'assets/campus.v2.glb',home:false},
-  postwar:{name:'Post-war City',url:'assets/postwar-city.v1.glb',home:false},
+  'after-rain':{name:'After the Rain',url:'assets/after-the-rain-map.v1.glb',home:false},
   home:{name:'Home',url:'assets/home-interior-map.v1.glb',home:true}
 };
+// Bounds follow the full interior floor in the centered Home model.
+const HOME_ZONE={minX:3.95,maxX:16.95,minZ:3.2,maxZ:12.2,cameraMaxZ:12.2,
+  spawn:{x:7.8,z:8.2}};
+function canExploreHome(x,z){
+  return x>=HOME_ZONE.minX&&x<=HOME_ZONE.maxX&&z>=HOME_ZONE.minZ&&z<=HOME_ZONE.maxZ;
+}
+function constrainHomePosition(x,z){
+  const r=CFG.radius+0.08;
+  return{
+    x:clamp(x,HOME_ZONE.minX+r,HOME_ZONE.maxX-r),
+    z:clamp(z,HOME_ZONE.minZ+r,HOME_ZONE.maxZ-r)
+  };
+}
 const CHAR={name:'Original',role:'The Loyal Companion',traits:['Friendly','Humorous','Warm','Approachable'],
   lore:'Original was the first spark of the Indomieverse, born from a midnight kitchen and a pot that never quite boiled over. Whenever someone feels alone at the table, Original shows up with a joke and a spare pair of chopsticks.'};
 
@@ -163,7 +229,7 @@ function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(see
 /* ---------- peta kampus: bake ke float32 + BVH ---------- */
 const colliders=[];
 let mapBox=new THREE.Box3(),groundLevel=0;
-let mapRoot=null,activeMapGltf=null,activeMap=null,characterGltf=null;
+let mapRoot=null,activeMapGltf=null,activeMap=null,characterGltf=null,mavuikaGltf=null,homeGlass=null;
 function buildMap(gltf){
   const root=gltf.scene;root.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(root);
@@ -177,6 +243,9 @@ function buildMap(gltf){
     const pa=ng.attributes.position;
     for(let i=0;i<pa.count;i++){pa.setX(i,pa.getX(i)-off.x);pa.setZ(i,pa.getZ(i)-off.z)}
     pa.needsUpdate=true;
+    // The vertex positions changed after applyMatrix4; refresh bounds so Three.js
+    // does not frustum-cull furniture using its old, uncentered bounding sphere.
+    ng.computeBoundingBox();ng.computeBoundingSphere();
     if(!ng.attributes.normal)ng.computeVertexNormals();
     const mats=Array.isArray(m.material)?m.material:[m.material];
     for(const mat of mats){
@@ -189,8 +258,19 @@ function buildMap(gltf){
   scene.add(out);mapRoot=out;activeMapGltf=gltf;
   mapBox=new THREE.Box3().setFromObject(out);
 }
+function buildHomeGlass(){
+  const w=HOME_ZONE.maxX-HOME_ZONE.minX,h=3.8;
+  const geometry=new THREE.PlaneGeometry(w,h);geometry.computeBoundsTree();
+  const material=new THREE.MeshBasicMaterial({color:0xb8d7e5,transparent:true,opacity:0.22,
+    side:THREE.DoubleSide,depthWrite:false});
+  const wall=new THREE.Mesh(geometry,material);
+  wall.position.set((HOME_ZONE.minX+HOME_ZONE.maxX)/2,h/2,HOME_ZONE.cameraMaxZ-0.06);
+  wall.frustumCulled=false;scene.add(wall);colliders.push(wall);homeGlass=wall;
+}
 function disposeMap(){
+  raceGraph=null;
   if(mapRoot)scene.remove(mapRoot);
+  if(homeGlass){scene.remove(homeGlass);homeGlass.material.dispose();homeGlass=null}
   for(const mesh of colliders){mesh.geometry.disposeBoundsTree();mesh.geometry.dispose()}
   colliders.length=0;
   if(activeMapGltf){
@@ -214,13 +294,79 @@ const groundAt=(x,z,fromY,far=6)=>{const h=cast(x,fromY,z,0,-1,0,far);return h?h
 
 /* ---------- rangka karakter buatan (karena model tanpa skeleton) ---------- */
 const rig={};
-function buildCharacter(gltf){
+const SOFA_SEAT={x:7.8,z:7.05,y:0.04};
+let seated=false,seatCameraReturn=null;
+let selectedCharacter='original';try{selectedCharacter=localStorage.getItem('indomieverse-character')==='mavuika'?'mavuika':'original'}catch{}
+let installedCharacter='';
+function installPlayerCharacter(id,original,mavuika){
+  if(rig.mode==='procedural'&&rig.group)rig.group.traverse(o=>{if(o.geometry)o.geometry.dispose()});
+  for(const key of Object.keys(rig))delete rig[key];
+  player.clear();seated=false;seatCameraReturn=null;
+  if(id==='mavuika'){
+    const model=mavuika.scene;
+    model.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+    model.position.set(model.position.x-center.x,model.position.y-bounds.min.y,model.position.z-center.z);
+    const skinned=[];model.traverse(o=>{if(o.isSkinnedMesh)skinned.push(o)});
+    const skeleton=skinned[0]?.skeleton;
+    if(!skeleton||skeleton.bones.length<241)throw new Error('Rig Mavuika tidak lengkap; diperlukan minimal 241 tulang.');
+    const bones=skeleton.bones.map((bone,index)=>({bone,index,base:bone.quaternion.clone()}));
+    const byIndex=index=>bones[index]?.bone||null;
+    const hairIndices=[43,47,51,55,59,63,64,68,72,76,80,81,83,87,91,95,99,103,
+      104,108,112,116,117,119,121,122,126,130,131,133,134,136,137,141,145,149,151,152,153,154,155,156,158];
+    const hairBones=hairIndices.map(index=>bones[index]).filter(Boolean);
+    const coatBones=[236,237,238,239,240].map(byIndex).filter(Boolean);
+    player.add(model);player.scale.setScalar(1.72/Math.max(size.y,0.001));
+    player.updateMatrixWorld(true);model.updateMatrixWorld(true);
+    // This skin's shoulders extend sideways while its legs extend down. Derive
+    // each swing axis from the actual bone segment and the face's forward vector,
+    // instead of reusing Original's X axis for every limb.
+    const forward=new THREE.Vector3(0,0,1),headAnchor=byIndex(37),faceAnchor=byIndex(159);
+    if(headAnchor&&faceAnchor){
+      const headPos=headAnchor.getWorldPosition(new THREE.Vector3()),facePos=faceAnchor.getWorldPosition(new THREE.Vector3());
+      forward.subVectors(facePos,headPos).setY(0);
+      if(forward.lengthSq()>.0001)forward.normalize();else forward.set(0,0,1);
+    }
+    const limbAxis=(from,to,fallback)=>{
+      if(!from||!to)return fallback.clone();
+      const a=from.getWorldPosition(new THREE.Vector3()),b=to.getWorldPosition(new THREE.Vector3());
+      const axis=b.sub(a).cross(forward);
+      return axis.lengthSq()>.0001?axis.normalize():fallback.clone();
+    };
+    const limbAxes={
+      thighL:limbAxis(byIndex(13),byIndex(14),AX),thighR:limbAxis(byIndex(24),byIndex(25),AX),
+      kneeL:limbAxis(byIndex(14),byIndex(15),AX),kneeR:limbAxis(byIndex(25),byIndex(26),AX),
+      footL:limbAxis(byIndex(15),byIndex(16),AX),footR:limbAxis(byIndex(26),byIndex(27),AX),
+      shoulderL:limbAxis(byIndex(164),byIndex(169),AZ),shoulderR:limbAxis(byIndex(195),byIndex(200),AZ),
+      elbowL:limbAxis(byIndex(169),byIndex(170),AZ),elbowR:limbAxis(byIndex(200),byIndex(201),AZ),
+      handL:limbAxis(byIndex(169),byIndex(170),AZ),handR:limbAxis(byIndex(200),byIndex(201),AZ)
+    };
+    Object.assign(rig,{mode:'mavuika',mavuikaBones:bones,
+      pelvis:byIndex(6),thighL:byIndex(13),kneeL:byIndex(14),footL:byIndex(15),
+      thighR:byIndex(24),kneeR:byIndex(25),footR:byIndex(26),
+      spine:byIndex(35),neck:byIndex(36),head:byIndex(37),
+      shoulderL:byIndex(164),elbowL:byIndex(169),handL:byIndex(170),
+      shoulderR:byIndex(195),elbowR:byIndex(200),handR:byIndex(201),hairBones,coatBones,
+      limbAxes,mavuikaForward:forward.clone(),
+      hairSpring:{x:0,vx:0,z:0,vz:0},coatSpring:{x:0,vx:0,z:0,vz:0},
+      phase:0,moveAmt:0,baseScale:1.72/Math.max(size.y,0.001)});
+  }else{
+    player.add(buildCharacter(original));player.scale.setScalar(1);
+    rig.baseScale=1;
+  }
+  installedCharacter=id;
+}
+function buildCharacter(gltf,targetRig=rig){
   const src=gltf.scene;src.updateMatrixWorld(true);
   const meshes=[];src.traverse(o=>{if(o.isMesh)meshes.push(o)});
   const root=new THREE.Bone();
   const mk=(x,y)=>{const b=new THREE.Bone();b.position.set(x,y,0);root.add(b);return b};
-  const hipP=mk(.09,.85),hipN=mk(-.09,.85),shP=mk(.21,1.30),shN=mk(-.21,1.30);
-  const bones=[root,hipP,hipN,shP,shN];
+  const pelvis=mk(0,.84),spine=new THREE.Bone();spine.position.set(0,.16,0);pelvis.add(spine);
+  const hipP=new THREE.Bone(),hipN=new THREE.Bone();hipP.position.set(.09,0,0);hipN.position.set(-.09,0,0);pelvis.add(hipP,hipN);
+  const shP=new THREE.Bone(),shN=new THREE.Bone();shP.position.set(.21,.26,0);shN.position.set(-.21,.26,0);spine.add(shP,shN);
+  const kneeP=new THREE.Bone(),kneeN=new THREE.Bone();
+  kneeP.position.set(0,-.38,0);kneeN.position.set(0,-.38,0);hipP.add(kneeP);hipN.add(kneeN);
+  const bones=[root,pelvis,spine,hipP,hipN,shP,shN,kneeP,kneeN];
   const group=new THREE.Group();group.add(root);
   const skinned=[],v=new THREE.Vector3(),nv=new THREE.Vector3(),nm=new THREE.Matrix3();
   for(const m of meshes){
@@ -232,10 +378,16 @@ function buildCharacter(gltf){
       if(na){nv.fromBufferAttribute(na,i).applyMatrix3(nm).normalize();N[i*3]=nv.x;N[i*3+1]=nv.y;N[i*3+2]=nv.z}
       if(ua){U[i*2]=ua.getX(i);U[i*2+1]=ua.getY(i)}
       const x=v.x,y=v.y,ax=Math.abs(x);
-      let b1=0,w1=0,b2=0,w2=0;
-      if(y>1.0){const w=smooth(.20,.32,ax);if(w>0){b1=x>0?3:4;w1=w}}
-      else if(y<.88){const lw=smooth(.88,.70,y);if(lw>0){const s=smooth(-.025,.025,x);b1=1;w1=lw*s;b2=2;w2=lw*(1-s)}}
-      SI[i*4]=0;SI[i*4+1]=b1;SI[i*4+2]=b2;SW[i*4]=1-w1-w2;SW[i*4+1]=w1;SW[i*4+2]=w2;
+      let b1=0,w1=0,b2=0,w2=0,b3=0,w3=0;
+      if(y>1.0){const w=smooth(.20,.32,ax);b1=x>0?5:6;w1=w;b2=2;w2=1-w}
+      else if(y<.88){
+        const lw=smooth(.88,.70,y),side=smooth(-.025,.025,x),bend=smooth(.58,.36,y);
+        b1=3;w1=lw*(1-bend)*side;b2=4;w2=lw*(1-bend)*(1-side);
+        b3=x>=0?7:8;w3=lw*bend;SW[i*4]=1-lw;
+      }else{const torso=smooth(.88,1.05,y);b1=1;w1=1-torso;b2=2;w2=torso}
+      SI[i*4]=0;SI[i*4+1]=b1;SI[i*4+2]=b2;SI[i*4+3]=b3;
+      if(y<.88){SW[i*4+1]=w1;SW[i*4+2]=w2;SW[i*4+3]=w3}
+      else{SW[i*4]=1-w1-w2;SW[i*4+1]=w1;SW[i*4+2]=w2;SW[i*4+3]=0}
     }
     const ng=new THREE.BufferGeometry();
     ng.setAttribute('position',new THREE.BufferAttribute(P,3));
@@ -251,24 +403,106 @@ function buildCharacter(gltf){
   group.updateMatrixWorld(true);
   const sk=new THREE.Skeleton(bones);
   for(const sm of skinned)sm.bind(sk,new THREE.Matrix4());
-  Object.assign(rig,{group,root,hipP,hipN,shP,shN});
+  Object.assign(targetRig,{group,root,pelvis,spine,hipP,hipN,kneeP,kneeN,shP,shN,mode:'procedural',baseScale:1,phase:0,moveAmt:0});
   return group;
 }
 const qA=new THREE.Quaternion(),qB=new THREE.Quaternion(),AX=new THREE.Vector3(1,0,0),AZ=new THREE.Vector3(0,0,1);
+const parentQ=new THREE.Quaternion(),worldTurn=new THREE.Quaternion(),localTurn=new THREE.Quaternion();
+const rotatedLimbAxis=new THREE.Vector3();
 const ARM_DOWN=1.15;
-let phase=0,moveAmt=0;
+function mavuikaAxis(axis){return rotatedLimbAxis.copy(axis).applyQuaternion(player.quaternion)}
+function applyWorldTurn(bone,axis,angle){
+  if(!bone||Math.abs(angle)<1e-5)return;
+  if(bone.parent)bone.parent.getWorldQuaternion(parentQ);else parentQ.identity();
+  worldTurn.setFromAxisAngle(axis,angle);
+  localTurn.copy(parentQ).invert().multiply(worldTurn).multiply(parentQ);
+  bone.quaternion.premultiply(localTurn);
+}
 function poseCharacter(dt,speed,t){
+  if(rig.mode==='mavuika'){
+    const walking=!seated&&speed>.08,target=clamp(speed/CFG.walk,0,2.4);
+    rig.moveAmt=lerp(rig.moveAmt,target>.05?1:0,1-Math.exp(-10*dt));
+    rig.phase+=dt*Math.PI*2*(speed/1.55);
+    const run=smooth(CFG.walk*1.1,CFG.run,speed),s=Math.sin(rig.phase),move=walking?clamp(speed/CFG.walk,0,1.5):0;
+    // Keep Mavuika's shorter, close-set leg rig inside a natural stride; the
+    // Original rig's wider swing makes her feet overlap across the centerline.
+    const legA=(.34+.22*run)*rig.moveAmt,armA=(.4+.4*run)*rig.moveAmt;
+    const kneeFlex=.34+.22*run;
+    const bendL=Math.max(0,-s)*kneeFlex*rig.moveAmt,bendR=Math.max(0,s)*kneeFlex*rig.moveAmt;
+    const idle=Math.sin(t*1.6)*.03*(1-rig.moveAmt);
+    for(const entry of rig.mavuikaBones)entry.bone.quaternion.copy(entry.base);
+    // Match Original's alternating stride and opposite arm swing on Mavuika's own skin.
+    if(seated){
+      applyWorldTurn(rig.pelvis,AX,-.08);applyWorldTurn(rig.spine,AX,.08);
+      applyWorldTurn(rig.thighL,mavuikaAxis(rig.limbAxes.thighL),-.9);applyWorldTurn(rig.thighR,mavuikaAxis(rig.limbAxes.thighR),-.9);
+      applyWorldTurn(rig.kneeL,mavuikaAxis(rig.limbAxes.kneeL),-1.0);applyWorldTurn(rig.kneeR,mavuikaAxis(rig.limbAxes.kneeR),-1.0);
+      applyWorldTurn(rig.shoulderL,mavuikaAxis(rig.mavuikaForward),.42);applyWorldTurn(rig.shoulderR,mavuikaAxis(rig.mavuikaForward),-.42);
+      applyWorldTurn(rig.elbowL,mavuikaAxis(AX),.32);applyWorldTurn(rig.elbowR,mavuikaAxis(AX),.32);
+      rig.bob=0;rig.lean=0;return;
+    }
+    applyWorldTurn(rig.pelvis,AX,-s*.035*rig.moveAmt);
+    applyWorldTurn(rig.spine,AX,run*.06*rig.moveAmt+s*.025*rig.moveAmt+idle*.35);
+    applyWorldTurn(rig.neck,AX,-run*.025*rig.moveAmt);
+    applyWorldTurn(rig.head,AZ,Math.sin(t*1.15)*.018*(1-rig.moveAmt));
+    applyWorldTurn(rig.thighL,mavuikaAxis(rig.limbAxes.thighL),-s*legA);applyWorldTurn(rig.thighR,mavuikaAxis(rig.limbAxes.thighR),s*legA);
+    applyWorldTurn(rig.thighL,mavuikaAxis(rig.mavuikaForward),.045);
+    applyWorldTurn(rig.thighR,mavuikaAxis(rig.mavuikaForward),-.045);
+    // Flex the knees toward the character's forward-facing bend direction;
+    // counter-rotate the ankles slightly so the feet do not point down sharply.
+    applyWorldTurn(rig.kneeL,mavuikaAxis(rig.limbAxes.kneeL),-bendL);applyWorldTurn(rig.kneeR,mavuikaAxis(rig.limbAxes.kneeR),-bendR);
+    applyWorldTurn(rig.footL,mavuikaAxis(rig.limbAxes.footL),bendL*.3);applyWorldTurn(rig.footR,mavuikaAxis(rig.limbAxes.footR),bendR*.3);
+    // Relax both shoulders from the model's wide bind pose, then add the walk swing.
+    applyWorldTurn(rig.shoulderL,mavuikaAxis(rig.mavuikaForward),.48);
+    applyWorldTurn(rig.shoulderR,mavuikaAxis(rig.mavuikaForward),-.48);
+    applyWorldTurn(rig.shoulderL,mavuikaAxis(rig.limbAxes.shoulderL),s*armA+idle);
+    applyWorldTurn(rig.shoulderR,mavuikaAxis(rig.limbAxes.shoulderR),-s*armA-idle);
+    const elbowSwing=.08*rig.moveAmt,elbowFlex=.30+.14*run,elbowPump=.06+.10*run;
+    applyWorldTurn(rig.elbowL,mavuikaAxis(AX),elbowFlex+elbowSwing+Math.max(0,s)*elbowPump*rig.moveAmt);
+    applyWorldTurn(rig.elbowR,mavuikaAxis(AX),elbowFlex+elbowSwing+Math.max(0,-s)*elbowPump*rig.moveAmt);
+    applyWorldTurn(rig.handL,mavuikaAxis(rig.limbAxes.handL),-s*.035*rig.moveAmt);applyWorldTurn(rig.handR,mavuikaAxis(rig.limbAxes.handR),s*.035*rig.moveAmt);
+    const spring=(state,x,z,stiffness,damping)=>{
+      state.vx+=(x-state.x)*stiffness*dt;state.vx*=Math.exp(-damping*dt);state.x+=state.vx*dt;
+      state.vz+=(z-state.z)*stiffness*dt;state.vz*=Math.exp(-damping*dt);state.z+=state.vz*dt;
+    };
+    const breeze=Math.sin(t*3.8+rig.phase)*move;
+    spring(rig.hairSpring,-.045*move+.018*breeze,.025*breeze,15,7);
+    spring(rig.coatSpring,-.065*move+.025*breeze,.035*breeze,13,6.5);
+    for(const {bone,index} of rig.hairBones){
+      const strand=0.45+(index%5)*.12;
+      applyWorldTurn(bone,AX,rig.hairSpring.x*strand);
+      applyWorldTurn(bone,AZ,rig.hairSpring.z*strand);
+    }
+    for(let i=0;i<rig.coatBones.length;i++){
+      const side=i===0||i===3?1:-1,layer=(i%3+1)/3,bone=rig.coatBones[i];
+      applyWorldTurn(bone,AX,rig.coatSpring.x*layer);
+      applyWorldTurn(bone,AZ,rig.coatSpring.z*layer*side);
+    }
+    rig.bob=walking?Math.abs(Math.sin(rig.phase))*.035*move*(1+run*.8):0;
+    rig.lean=walking?run*.12*rig.moveAmt:0;return;
+  }
+  if(seated){
+    rig.moveAmt=lerp(rig.moveAmt,0,1-Math.exp(-12*dt));
+    rig.pelvis.position.y=lerp(rig.pelvis.position.y,.62,1-Math.exp(-8*dt));
+    rig.pelvis.rotation.x=-.08;rig.spine.rotation.x=.08;
+    rig.hipP.quaternion.setFromAxisAngle(AX,-1.28);rig.hipN.quaternion.setFromAxisAngle(AX,-1.28);
+    rig.kneeP.quaternion.setFromAxisAngle(AX,1.28);rig.kneeN.quaternion.setFromAxisAngle(AX,1.28);
+    const setArm=(bone,lower)=>{qA.setFromAxisAngle(AX,-.08);qB.setFromAxisAngle(AZ,lower);bone.quaternion.copy(qA).multiply(qB)};
+    setArm(rig.shP,-ARM_DOWN);setArm(rig.shN,ARM_DOWN);
+    rig.bob=0;rig.lean=0;return;
+  }
   const target=clamp(speed/CFG.walk,0,2.4);
-  moveAmt=lerp(moveAmt,target>0.05?1:0,1-Math.exp(-10*dt));
-  phase+=dt*Math.PI*2*(speed/1.55);
+  rig.moveAmt=lerp(rig.moveAmt,target>0.05?1:0,1-Math.exp(-10*dt));
+  rig.phase+=dt*Math.PI*2*(speed/1.55);
   const run=smooth(CFG.walk*1.1,CFG.run,speed);
-  const legA=(0.5+0.35*run)*moveAmt,armA=(0.4+0.4*run)*moveAmt;
-  const s=Math.sin(phase),idle=Math.sin(t*1.6)*0.03*(1-moveAmt);
+  const legA=(0.5+0.35*run)*rig.moveAmt,armA=(0.4+0.4*run)*rig.moveAmt;
+  const s=Math.sin(rig.phase),idle=Math.sin(t*1.6)*0.03*(1-rig.moveAmt);
   const set=(bone,swing,lower)=>{qA.setFromAxisAngle(AX,swing);qB.setFromAxisAngle(AZ,lower);bone.quaternion.copy(qA).multiply(qB)};
+  rig.pelvis.position.y=lerp(rig.pelvis.position.y,.84,1-Math.exp(-10*dt));rig.pelvis.rotation.x=0;rig.spine.rotation.x=0;
   set(rig.hipP,-s*legA,0);set(rig.hipN,s*legA,0);
+  set(rig.kneeP,0,0);set(rig.kneeN,0,0);
   set(rig.shP,s*armA+idle,-ARM_DOWN);set(rig.shN,-s*armA-idle,ARM_DOWN);
-  rig.bob=Math.abs(Math.sin(phase))*0.035*moveAmt*(1+run*0.8);
-  rig.lean=run*0.12*moveAmt;
+  rig.bob=Math.abs(Math.sin(rig.phase))*0.035*rig.moveAmt*(1+run*0.8);
+  rig.lean=run*0.12*rig.moveAmt;
 }
 
 /* ---------- bayangan bulat ---------- */
@@ -298,16 +532,33 @@ function makeBowl(){
 
 /* ---------- state ---------- */
 const S={pos:new THREE.Vector3(),yaw:0,face:0,speed:0,camYaw:Math.PI,camPitch:.32,camDist:CFG.camDist,
-  bowls:[],got:0,t0:0,running:false,chat:false,done:false,ready:false,mode:'collect'};
+  bowls:[],got:0,originalGot:0,raceStarted:false,raceChallengePending:false,raceChallengeShown:false,stamina:100,sprintCooldown:0,sprinting:false,t0:0,running:false,chat:false,done:false,ready:false,mode:'collect',questStarted:false,questReady:false};
+let raceGraph=null;
+let raceDifficulty='normal';
 const player=new THREE.Group();scene.add(player);
 const shadow=blobShadow();scene.add(shadow);
+const sitPrompt=$('#sitPrompt');
+const interactPrompt=$('#interactPrompt');
+function canSitAtSofa(){return activeMap?.home&&!seated&&Math.hypot(S.pos.x-SOFA_SEAT.x,S.pos.z-SOFA_SEAT.z)<1.9}
+function sitOnSofa(){
+  if(!canSitAtSofa())return;
+  seatCameraReturn={yaw:S.camYaw,pitch:S.camPitch,dist:S.camDist,face:S.face};
+  seated=true;S.speed=0;S.pos.set(SOFA_SEAT.x,SOFA_SEAT.y,SOFA_SEAT.z);S.face=0;
+  S.camYaw=0;S.camPitch=.24;S.camDist=4.0;openChat();
+}
 let spawn=new THREE.Vector3();
 const bowlGroup=new THREE.Group();scene.add(bowlGroup);
+const npcGroup=new THREE.Group();scene.add(npcGroup);npcGroup.visible=false;
+const npcRig={};
+let npcPosition=null;
+/* ---------- NPC Original: AI jalan-jalan ---------- */
+const NPC_CFG={walk:1.15,raceWalk:1.9,raceRun:4.15,turn:5,maxTurn:5,accel:5,leashCampus:6.5,leashHome:2.3,leashQuest:3.2,radius:.32,stepUp:.4,drop:.6,talkDist:3.2,seeDist:8};
+const npcAI={state:'idle',timer:1.5,tx:0,tz:0,speed:0,yaw:0,lookYaw:0,lookTimer:2,stuck:0,wave:0,waveCd:0,engaged:false,raceTarget:null,racePath:[],racePathIndex:0,raceBlockedEdges:{},raceProgressTimer:0,raceProgressBest:Infinity,raceProgressKey:'',raceReplanCount:0,raceRetryAt:0,raceBacktrack:false,raceStuck:0,raceSkipped:{},raceStamina:100,raceSprintCooldown:0,raceSprinting:false,anchor:{x:0,y:0,z:0}};
 
 function findWalkables(){
   const cands=[],fallback=[];const b=mapBox,topY=b.max.y+5;
   const heights=[];const grid=[];
-  const step=Math.max(3.5,Math.sqrt(((b.max.x-b.min.x)*(b.max.z-b.min.z))/1800));
+  const step=walkableGridStep();
   for(let x=b.min.x+4;x<b.max.x-4;x+=step)for(let z=b.min.z+4;z<b.max.z-4;z+=step){
     const h=cast(x,topY,z,0,-1,0,topY-b.min.y+10);
     if(h){heights.push(h.point.y);grid.push({x,z,y:h.point.y,ny:h.face?h.face.normal.y:1})}
@@ -326,12 +577,360 @@ function findWalkables(){
   // probes everywhere. Keep valid ground candidates so the map can still start.
   return cands.length?cands:fallback;
 }
+function walkableGridStep(){
+  const b=mapBox;
+  return Math.max(3.5,Math.sqrt(((b.max.x-b.min.x)*(b.max.z-b.min.z))/1800));
+}
+function raceEdgeKey(a,b){return a<b?`${a}:${b}`:`${b}:${a}`}
+function measureRaceNodeClearance(node){
+  const max=4.5,widths=[];
+  for(const [dx,dz] of [[1,0],[0,1]]){
+    const a=npcWallAhead(node.x,node.y,node.z,dx,dz,max),b=npcWallAhead(node.x,node.y,node.z,-dx,-dz,max);
+    widths.push(Math.min(max,a?a.distance:max)+Math.min(max,b?b.distance:max));
+  }
+  return (widths[0]+widths[1])/2;
+}
+function buildRaceGraph(points,gridStep){
+  const b=mapBox,originX=b.min.x+4,originZ=b.min.z+4,nodes=[],cells=new Map();
+  const cellOf=p=>({x:Math.round((p.x-originX)/gridStep),z:Math.round((p.z-originZ)/gridStep)});
+  for(const p of points){
+    const id=nodes.length,c=cellOf(p),node={id,x:p.x,y:p.y,z:p.z,edges:[],clearance:0,degree:0};
+    nodes.push(node);cells.set(`${c.x},${c.z}`,id);
+  }
+  for(const node of nodes)node.clearance=measureRaceNodeClearance(node);
+  for(const node of nodes){
+    const c=cellOf(node);
+    for(const [ox,oz] of [[1,0],[0,1],[1,1],[1,-1]]){
+      const to=cells.get(`${c.x+ox},${c.z+oz}`);if(to===undefined)continue;
+      const next=nodes[to],dx=next.x-node.x,dz=next.z-node.z,d=Math.hypot(dx,dz),nx=dx/d,nz=dz/d;
+      if(next.y-node.y>NPC_CFG.stepUp||node.y-next.y>NPC_CFG.drop)continue;
+      if(npcWallAhead(node.x,node.y,node.z,nx,nz,d+NPC_CFG.radius))continue;
+      const clearance=Math.min(node.clearance,next.clearance);
+      const narrowPenalty=1+Math.max(0,3.2-clearance)*.055,cost=d*narrowPenalty;
+      node.edges.push({to,distance:d,clearance,cost});
+      next.edges.push({to:node.id,distance:d,clearance,cost});
+    }
+  }
+  for(const n of nodes){n.degree=n.edges.length;n.clearance=n.edges.length?n.edges.reduce((s,e)=>s+e.clearance,0)/n.edges.length:0}
+  return {nodes,gridStep,originX,originZ};
+}
+function nearestRaceNode(graph,x,y,z){
+  if(!graph?.nodes?.length)return null;
+  let best=null,bestD=Infinity;
+  for(const n of graph.nodes){const dx=n.x-x,dz=n.z-z,dy=(n.y-y)*.65,d=dx*dx+dz*dz+dy*dy;if(d<bestD){bestD=d;best=n.id}}
+  return best;
+}
+function findRacePath(graph,startId,goalId,blockedEdges=new Set()){
+  if(!graph||!Number.isInteger(startId)||!Number.isInteger(goalId))return null;
+  const nodes=graph.nodes,start=nodes[startId],goal=nodes[goalId];if(!start||!goal)return null;
+  if(startId===goalId)return {nodes:[startId],cost:0};
+  const size=nodes.length,g=new Float64Array(size),came=new Int32Array(size),closed=new Uint8Array(size);
+  g.fill(Infinity);came.fill(-1);g[startId]=0;
+  const heap=[];
+  const push=(id,score)=>{let i=heap.length;heap.push([id,score]);while(i>0){const p=(i-1)>>1;if(heap[p][1]<=score)break;heap[i]=heap[p];i=p}heap[i]=[id,score]};
+  const pop=()=>{const root=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){let c=i*2+1;if(c>=heap.length)break;if(c+1<heap.length&&heap[c+1][1]<heap[c][1])c++;if(heap[c][1]>=last[1])break;heap[i]=heap[c];i=c}heap[i]=last}return root};
+  const heuristic=n=>Math.hypot(n.x-goal.x,n.z-goal.z);
+  push(startId,heuristic(start));
+  while(heap.length){
+    const [id]=pop();if(closed[id])continue;if(id===goalId){const path=[id];let at=id;while(at!==startId){at=came[at];if(at<0)return null;path.push(at)}path.reverse();return {nodes:path,cost:g[id]}}
+    closed[id]=1;
+    for(const edge of nodes[id].edges){
+      if(closed[edge.to]||blockedEdges.has(raceEdgeKey(id,edge.to)))continue;
+      const score=g[id]+edge.cost;if(score>=g[edge.to])continue;
+      g[edge.to]=score;came[edge.to]=id;push(edge.to,score+heuristic(nodes[edge.to]));
+    }
+  }
+  return null;
+}
+function placeOriginalNpc(gltf,map,cands){
+  if(npcRig.group)npcRig.group.traverse(o=>{if(o.geometry)o.geometry.dispose()});
+  npcGroup.clear();npcGroup.visible=true;npcPosition=null;
+  npcGroup.add(buildCharacter(gltf,npcRig));npcGroup.scale.setScalar(map.home?0.82:1);
+  if(map.home){
+    const x=HOME_ZONE.maxX-2.1,z=HOME_ZONE.cameraMaxZ-1.1;
+    const y=groundAt(x,z,2,8);
+    npcPosition={x,y:y===null?spawn.y:y,z};
+  }else{
+    const center=mapBox.getCenter(new THREE.Vector3());
+    const candidates=cands.filter(p=>Math.hypot(p.x-spawn.x,p.z-spawn.z)>10);
+    const pool=candidates.length?candidates:cands;
+    const spot=pool.reduce((best,p)=>{
+      const score=candidates.length?Math.hypot(p.x-center.x,p.z-center.z):-Math.hypot(p.x-spawn.x,p.z-spawn.z);
+      const bestScore=!best?Infinity:(candidates.length?Math.hypot(best.x-center.x,best.z-center.z):-Math.hypot(best.x-spawn.x,best.z-spawn.z));
+      return !best||score<bestScore?p:best;
+    },null);
+    if(!spot)throw new Error('Lokasi NPC Original tidak ditemukan di '+map.name+'.');
+    npcPosition={x:spot.x,y:spot.y,z:spot.z};
+  }
+  npcGroup.position.set(npcPosition.x,npcPosition.y,npcPosition.z);
+  npcGroup.rotation.y=Math.atan2(spawn.x-npcPosition.x,spawn.z-npcPosition.z);
+  initOriginalNpcAI();
+}
+function initOriginalNpcAI(){
+  const y=npcGroup.rotation.y;
+  Object.assign(npcAI,{state:'idle',timer:1+Math.random()*2,speed:0,stuck:0,wave:0,waveCd:0,engaged:false,lookTimer:2,yaw:y,lookYaw:y,
+    raceTarget:null,racePath:[],racePathIndex:0,raceBlockedEdges:{},raceProgressTimer:0,raceProgressBest:Infinity,raceProgressKey:'',raceReplanCount:0,raceRetryAt:0,raceBacktrack:false,raceStuck:0,raceSkipped:{},raceSprinting:false});
+  npcAI.anchor.x=npcPosition.x;npcAI.anchor.y=npcPosition.y;npcAI.anchor.z=npcPosition.z;
+  npcRig.wave=0;npcRig.talk=0;npcRig.moveAmt=0;npcRig.phase=0;
+}
+const npcScale=()=>activeMap?.home?.82:1;
+const npcLeash=()=>activeMap?.home?NPC_CFG.leashHome:(S.questStarted&&!S.done?NPC_CFG.leashQuest:NPC_CFG.leashCampus);
+// tembok di depan NPC (sinar mendatar di dua ketinggian, sama seperti pemain)
+function npcWallAhead(x,y,z,nx,nz,len){
+  const sc=npcScale();
+  for(const hh of[.45,1.1]){const h=cast(x,y+hh*sc,z,nx,0,nz,len);if(h&&h.face&&Math.abs(h.face.normal.y)<.75)return h}
+  return null;
+}
+// pilih titik tujuan acak di sekitar titik awal (anchor); jalurnya harus bebas tembok & tidak ada jurang/tebing
+function pickNpcTarget(){
+  const p=npcPosition,a=npcAI.anchor,home=!!activeMap?.home,leash=npcLeash();
+  for(let i=0;i<16;i++){
+    const ang=Math.random()*Math.PI*2,r=1+Math.random()*Math.max(.5,leash-1);
+    const x=a.x+Math.cos(ang)*r,z=a.z+Math.sin(ang)*r;
+    if(home&&!canExploreHome(x,z))continue;
+    if(Math.hypot(x-S.pos.x,z-S.pos.z)<2)continue;
+    const dx=x-p.x,dz=z-p.z,L=Math.hypot(dx,dz);if(L<1)continue;
+    const nx=dx/L,nz=dz/L;
+    if(npcWallAhead(p.x,p.y,p.z,nx,nz,L+.5))continue;
+    let ok=true,py=p.y;
+    for(let d=.5;d<=L&&ok;d+=.5){
+      const g=groundAt(p.x+nx*d,p.z+nz*d,py+1.3,4);
+      if(g===null||g-py>NPC_CFG.stepUp||py-g>NPC_CFG.drop)ok=false;else py=g;
+    }
+    const ge=groundAt(x,z,py+1.3,4);
+    if(!ok||ge===null||Math.abs(ge-py)>NPC_CFG.stepUp)continue;
+    npcAI.tx=x;npcAI.tz=z;return true;
+  }
+  return false;
+}
+// gerakkan NPC satu langkah; mengembalikan jarak yang benar-benar ditempuh
+function moveOriginalNpc(dist,nx,nz){
+  const p=npcPosition,rad=NPC_CFG.radius*npcScale();
+  if(dist<1e-6)return 0;
+  if(npcWallAhead(p.x,p.y,p.z,nx,nz,rad+dist+.05))return 0;
+  let gx=p.x+nx*dist,gz=p.z+nz*dist;
+  if(activeMap?.home){const b=constrainHomePosition(gx,gz);gx=b.x;gz=b.z}
+  const g=groundAt(gx,gz,p.y+1.3,5);
+  if(g===null||g-p.y>NPC_CFG.stepUp||p.y-g>NPC_CFG.drop)return 0;
+  const moved=Math.hypot(gx-p.x,gz-p.z);p.x=gx;p.z=gz;return moved;
+}
+function activeRaceBlockedEdges(now=performance.now()){
+  const blocked=new Set();
+  for(const [key,until] of Object.entries(npcAI.raceBlockedEdges)){if(until<=now)delete npcAI.raceBlockedEdges[key];else blocked.add(key)}
+  return blocked;
+}
+function getNpcRaceChoices(){
+  if(!raceGraph?.nodes?.length||!npcPosition)return [];
+  const now=performance.now(),start=nearestRaceNode(raceGraph,npcPosition.x,npcPosition.y,npcPosition.z),blocked=activeRaceBlockedEdges(now),available=S.bowls.filter(b=>!b.got&&(npcAI.raceSkipped[b.id]||0)<=now);
+  if(start===null)return [];
+  return available.map(b=>{
+    const goal=nearestRaceNode(raceGraph,b.x,b.y,b.z),path=goal===null?null:findRacePath(raceGraph,start,goal,blocked);
+    if(!path)return null;
+    const routeNodes=path.nodes.map(id=>raceGraph.nodes[id]);
+    const corridor=routeNodes.length?routeNodes.reduce((s,n)=>s+n.clearance,0)/routeNodes.length:0;
+    const junctions=routeNodes.reduce((s,n)=>s+Math.max(0,n.degree-2),0)/Math.max(1,routeNodes.length);
+    const nearby=available.reduce((s,other)=>s+(other!==b&&Math.hypot(other.x-b.x,other.z-b.z)<12?1:0),0);
+    return {bowl:b,path,goal,corridor,junctions,nearby,score:path.cost-Math.min(6,nearby)*.3-Math.min(4,junctions)*.25-Math.min(7,corridor)*.08};
+  }).filter(Boolean).sort((a,b)=>a.score-b.score);
+}
+function setNpcRaceRoute(choice){
+  npcAI.raceTarget=choice?.bowl||null;npcAI.racePath=choice?.path?.nodes||[];npcAI.racePathIndex=npcAI.racePath.length>1?1:0;
+  npcAI.raceProgressTimer=0;npcAI.raceProgressBest=Infinity;npcAI.raceProgressKey='';npcAI.raceReplanCount=0;npcAI.raceBacktrack=false;npcAI.raceStuck=0;npcAI.raceRetryAt=0;
+  return npcAI.raceTarget;
+}
+function chooseRaceBowl(){
+  const choices=getNpcRaceChoices();
+  if(!choices.length){setNpcRaceRoute(null);const now=performance.now(),expiry=Object.values(npcAI.raceSkipped).filter(t=>t>now);npcAI.raceRetryAt=expiry.length?Math.max(now+1200,Math.min(...expiry)):now+5000;return null}
+  if(raceDifficulty==='hard'&&choices.length>1){
+    const blocked=activeRaceBlockedEdges();
+      const shortlist=choices.slice(0,6);
+      const strategic=shortlist.map(choice=>{
+      let nextLeg=Infinity;
+      for(const next of shortlist){
+        if(next===choice)continue;
+        const path=findRacePath(raceGraph,choice.goal,next.goal,blocked);
+        if(path)nextLeg=Math.min(nextLeg,path.cost);
+      }
+      const lookahead=Number.isFinite(nextLeg)?nextLeg:0;
+      const score=choice.path.cost+lookahead*.72-Math.min(6,choice.nearby)*.45-Math.min(4,choice.junctions)*.2-Math.min(7,choice.corridor)*.06;
+      return {choice,score};
+    }).sort((a,b)=>a.score-b.score);
+    return setNpcRaceRoute(strategic[0].choice);
+  }
+  return setNpcRaceRoute(choices[0]);
+}
+function raceModeLabel(){return raceDifficulty==='hard'?'Hard · strategi 2 mie':'Normal · rute lokal'}
+function setRaceModeStatus(text){$('#raceModeStatus').textContent=text}
+function replanNpcRaceRoute(){
+  const ai=npcAI,now=performance.now(),target=ai.raceTarget;
+  if(!raceGraph)return false;
+  if(target&&ai.raceReplanCount>=3){ai.raceSkipped[target.id]=now+4500;ai.raceTarget=null;ai.racePath=[];ai.racePathIndex=0;ai.raceBacktrack=false;ai.raceRetryAt=now+250;return false}
+  if(!target&&ai.raceReplanCount>=6){ai.racePath=[];ai.racePathIndex=0;ai.raceBacktrack=false;ai.raceReplanCount=0;ai.raceRetryAt=now+1200;return false}
+  const from=ai.racePath[Math.max(0,ai.racePathIndex-1)],to=ai.racePath[ai.racePathIndex];
+  if(from!==undefined&&to!==undefined)ai.raceBlockedEdges[raceEdgeKey(from,to)]=now+5500;
+  const blocked=activeRaceBlockedEdges(now),start=nearestRaceNode(raceGraph,npcPosition.x,npcPosition.y,npcPosition.z),goal=target?nearestRaceNode(raceGraph,target.x,target.y,target.z):null;
+  const path=!target||start===null||goal===null?null:findRacePath(raceGraph,start,goal,blocked);
+  ai.raceReplanCount++;
+  if(path){ai.racePath=path.nodes;ai.racePathIndex=path.nodes.length>1?1:0;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;ai.raceBacktrack=false;return true}
+  // Recover toward the nearest earlier junction on the route with an unblocked exit.
+  if(start!==null){
+    for(let i=Math.min(ai.racePathIndex-1,ai.racePath.length-1);i>=0;i--){
+      const junction=ai.racePath[i],node=raceGraph.nodes[junction],hasExit=node.edges.some(e=>!blocked.has(raceEdgeKey(junction,e.to))&&!ai.racePath.slice(0,i+1).includes(e.to));
+      if(node.degree<2||!hasExit)continue;
+      const back=findRacePath(raceGraph,start,junction,blocked);
+      if(back){ai.raceTarget=null;ai.racePath=back.nodes;ai.racePathIndex=back.nodes.length>1?1:back.nodes.length;ai.raceBacktrack=true;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;return true}
+    }
+  }
+  ai.raceTarget=null;ai.racePath=[];ai.racePathIndex=0;ai.raceBacktrack=false;ai.raceRetryAt=now+1200;
+  return false;
+}
+function updateOriginalNpc(dt,t){
+  const p=npcPosition,ai=npcAI;if(!p||!npcRig.group)return;
+  const sc=npcScale();
+  const pdx=S.pos.x-p.x,pdz=S.pos.z-p.z,pd=Math.hypot(pdx,pdz),toPlayer=Math.atan2(pdx,pdz);
+  const racing=activeMapId==='after-rain'&&S.raceStarted&&!S.done;
+  const hardRace=racing&&raceDifficulty==='hard';
+  const engaged=!racing&&(!!S.chat||pd<NPC_CFG.talkDist);
+  if(ai.waveCd>0)ai.waveCd-=dt;
+  if(engaged&&!ai.engaged&&!S.chat&&ai.waveCd<=0){ai.wave=2.2;ai.waveCd=15}   // melambai saat pemain mendekat
+  ai.engaged=engaged;if(ai.wave>0)ai.wave-=dt;
+  let wantYaw=null,turnRate=3,wantSpeed=0;
+  if(racing){
+    if(ai.raceTarget?.got){ai.raceTarget=null;ai.racePath=[];ai.racePathIndex=0;ai.raceRetryAt=0}
+    if(ai.raceBacktrack&&ai.racePathIndex>=ai.racePath.length){ai.raceBacktrack=false;ai.racePath=[];ai.racePathIndex=0;ai.raceRetryAt=0}
+    if(!ai.raceTarget&&!ai.raceBacktrack&&performance.now()>=ai.raceRetryAt)ai.raceTarget=chooseRaceBowl();
+    const target=ai.raceTarget;
+    let waypoint=null,waypointKey='';
+    if(target&&ai.racePath.length){
+      if(ai.racePathIndex<ai.racePath.length){const n=raceGraph.nodes[ai.racePath[ai.racePathIndex]];waypoint=n;waypointKey=`node-${n.id}`}
+      else{waypoint=target;waypointKey=`bowl-${target.id}`}
+      const dx=waypoint.x-p.x,dz=waypoint.z-p.z,L=Math.hypot(dx,dz),capture=Math.max(.72,raceGraph.gridStep*.2);
+      if(L<capture&&ai.racePathIndex<ai.racePath.length){ai.racePathIndex++;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;waypoint=null}
+    }else if(ai.raceBacktrack&&ai.racePath.length){
+      if(ai.racePathIndex<ai.racePath.length){waypoint=raceGraph.nodes[ai.racePath[ai.racePathIndex]];waypointKey=`back-${waypoint.id}`;
+        if(Math.hypot(waypoint.x-p.x,waypoint.z-p.z)<Math.max(.72,raceGraph.gridStep*.2)){ai.racePathIndex++;ai.raceProgressTimer=0;waypoint=null}}
+    }
+    if(target&&Math.hypot(target.x-p.x,target.z-p.z)<CFG.pickup*.72&&Math.abs(target.y-p.y)<2){
+      target.got=true;bowlGroup.remove(target.m);S.originalGot++;updateScore();ai.raceTarget=null;ai.racePath=[];ai.racePathIndex=0;ai.raceProgressTimer=0;ai.raceProgressBest=Infinity;ai.raceSprinting=false;
+      if(S.got+S.originalGot>=S.bowls.length)finishRace();
+    }else if(waypoint){
+      const dx=waypoint.x-p.x,dz=waypoint.z-p.z,L=Math.hypot(dx,dz),heading=Math.atan2(dx,dz),aligned=Math.abs(angDiff(ai.yaw,heading))<.7;
+      wantYaw=heading;turnRate=hardRace?9:6;
+      if(waypointKey!==ai.raceProgressKey){ai.raceProgressKey=waypointKey;ai.raceProgressBest=L;ai.raceProgressTimer=0}
+      if(aligned){if(L<ai.raceProgressBest-Math.max(.015,ai.speed*dt*.4)){ai.raceProgressBest=L;ai.raceProgressTimer=0}else ai.raceProgressTimer+=dt}
+      const sprintRange=target?Math.hypot(target.x-p.x,target.z-p.z):0;
+      const sprintReserve=ai.raceSprinting?ai.raceStamina>12:ai.raceStamina>=48;
+      ai.raceSprinting=!!target&&!ai.raceBacktrack&&ai.raceSprintCooldown<=0&&sprintRange>(ai.raceSprinting?2.8:(hardRace?6.8:5.2))&&sprintReserve;
+      wantSpeed=aligned?(ai.raceBacktrack?NPC_CFG.raceWalk*sc:(ai.raceSprinting?NPC_CFG.raceRun:NPC_CFG.raceWalk)*sc):0;
+      if(ai.raceProgressTimer>(hardRace ? 0.65 : 1.15)){ai.raceProgressTimer=0;if(!replanNpcRaceRoute())ai.raceSprinting=false}
+    }else if(ai.raceBacktrack){wantSpeed=0;ai.raceSprinting=false}
+    else{wantSpeed=0;ai.raceSprinting=false}
+    ai.state='race';
+  }else if(engaged){ai.state='talk';wantYaw=toPlayer;turnRate=7}
+  else{
+    if(ai.state==='talk'){ai.state='idle';ai.timer=1.5+Math.random()*2}
+    if(ai.state==='idle'){
+      ai.timer-=dt;
+      if(Math.hypot(p.x-ai.anchor.x,p.z-ai.anchor.z)>npcLeash()+.5)ai.timer=Math.min(ai.timer,.3);
+      if(pd<NPC_CFG.seeDist){wantYaw=toPlayer;turnRate=2.5}      // menoleh pelan ke pemain
+      else{
+        ai.lookTimer-=dt;
+        if(ai.lookTimer<=0){ai.lookTimer=2+Math.random()*3;ai.lookYaw=ai.yaw+(Math.random()-.5)*2.2}
+        wantYaw=ai.lookYaw;turnRate=2;
+      }
+      if(ai.timer<=0){if(pickNpcTarget()){ai.state='walk';ai.stuck=0}else ai.timer=1+Math.random()*2}
+    }
+    if(ai.state==='walk'){
+      const dx=ai.tx-p.x,dz=ai.tz-p.z,L=Math.hypot(dx,dz);
+      if(L<.25){ai.state='idle';ai.timer=2+Math.random()*4}
+      else{
+        wantYaw=Math.atan2(dx,dz);turnRate=6;
+        const aligned=Math.abs(angDiff(ai.yaw,wantYaw))<.7;   // berbalik dulu, baru melangkah
+        wantSpeed=aligned?Math.min(NPC_CFG.walk,Math.max(.5,L*1.5))*sc:0;
+      }
+    }
+  }
+  if(wantYaw!==null){const lim=(hardRace?7:NPC_CFG.maxTurn)*dt;ai.yaw+=clamp(angDiff(ai.yaw,wantYaw)*(1-Math.exp(-turnRate*dt)),-lim,lim)}   // putar badan halus, ada batas kecepatan
+  ai.speed=lerp(ai.speed,wantSpeed,1-Math.exp(-(hardRace?8:NPC_CFG.accel)*dt));
+  if(wantSpeed===0&&ai.speed<.03)ai.speed=0;
+  let npcMoved=0,npcStep=0;
+  if(ai.speed>0){
+    const want=ai.speed*dt,moved=moveOriginalNpc(want,Math.sin(ai.yaw),Math.cos(ai.yaw));
+    npcMoved=moved;npcStep=want;
+    if(ai.state==='walk'){
+      if(moved<want*.3){ai.stuck+=dt;if(ai.stuck>.6){ai.state='idle';ai.timer=.8;ai.speed=0;ai.stuck=0}}
+      else ai.stuck=0;
+    }
+  }
+  if(racing){
+    const cooling=ai.raceSprintCooldown>0;
+    if(cooling){ai.raceSprintCooldown=Math.max(0,ai.raceSprintCooldown-dt);ai.raceSprinting=false}
+    const actuallySprinting=ai.raceSprinting&&ai.speed>NPC_CFG.raceWalk*sc*1.08&&npcStep>0&&npcMoved>npcStep*.3;
+    if(actuallySprinting){
+      ai.raceStamina=Math.max(0,ai.raceStamina-34*dt);
+      if(ai.raceStamina===0){ai.raceSprintCooldown=1.7;ai.raceSprinting=false}
+    }else if(!ai.raceSprinting&&!cooling&&ai.raceSprintCooldown<=0){
+      ai.raceStamina=Math.min(100,ai.raceStamina+22*dt);
+    }
+  }
+  const gy=groundAt(p.x,p.z,p.y+1.3,8);
+  if(gy!==null)p.y=lerp(p.y,gy,1-Math.exp(-(gy>p.y?20:14)*dt));
+  const bob=poseOriginalNpc(dt,t,ai.speed/sc);
+  npcGroup.position.set(p.x,p.y+bob*sc,p.z);
+  npcGroup.rotation.y=ai.yaw;
+}
+// animasi: kaki & tangan berayun saat berjalan, napas saat diam, melambai/gestur saat bicara
+function poseOriginalNpc(dt,t,speed){
+  const r=npcRig;if(!r.group)return 0;
+  const m0=clamp(speed/NPC_CFG.walk,0,1.3);
+  r.moveAmt=lerp(r.moveAmt||0,m0>.05?1:0,1-Math.exp(-10*dt));
+  r.phase+=dt*Math.PI*2*(speed/1.55);
+  const m=r.moveAmt,s=Math.sin(r.phase);
+  const legA=.42*m,armA=.34*m,idle=Math.sin(t*1.6)*.03*(1-m);
+  const w=r.wave=lerp(r.wave||0,npcAI.wave>0?1:0,1-Math.exp(-8*dt));
+  const tk=r.talk=lerp(r.talk||0,S.chat?1:0,1-Math.exp(-6*dt));
+  const set=(bone,swing,side)=>{qA.setFromAxisAngle(AX,swing);qB.setFromAxisAngle(AZ,side);bone.quaternion.copy(qA).multiply(qB)};
+  r.pelvis.position.y=.84+Math.sin(t*1.8)*.006*(1-m);
+  r.pelvis.rotation.x=0;
+  r.spine.rotation.x=Math.sin(t*1.2)*.015*(1-m);
+  set(r.hipP,-s*legA,0);set(r.hipN,s*legA,0);
+  set(r.kneeP,0,0);set(r.kneeN,0,0);
+  let swP=s*armA+idle,loP=-ARM_DOWN;
+  loP=lerp(loP,-.5+Math.sin(t*2.6)*.1,tk);swP=lerp(swP,-.45+Math.sin(t*3.1)*.18,tk);   // gestur bicara
+  loP=lerp(loP,1.15+Math.sin(t*8)*.28,w);swP=lerp(swP,0,w);                          // melambai
+  let swN=-s*armA-idle;swN=lerp(swN,.2,tk);
+  set(r.shP,swP,loP);set(r.shN,swN,ARM_DOWN);
+  return Math.abs(Math.sin(r.phase))*.035*m;
+}
+function distanceToOriginal(){return npcPosition?Math.hypot(S.pos.x-npcPosition.x,S.pos.z-npcPosition.z):Infinity}
+function canInteractOriginal(){return !!npcPosition&&distanceToOriginal()<2.35&&!seated&&!S.done}
+function interactWithOriginal(){
+  if(!canInteractOriginal())return;
+  if(activeMap?.home){openChat();return}
+  if(activeMapId==='after-rain'){
+    if(!S.raceStarted){
+      S.raceChallengePending=true;openChat();
+      if(!S.raceChallengeShown){
+        addMsg('bot','Hei! Aku menantangmu balapan mengumpulkan mie. Kita rebutan mangkuk yang sama—siapa yang mengumpulkan paling banyak, dia pemenangnya!');
+        S.raceChallengeShown=true;
+      }
+      $('#raceChallenge').hidden=false;
+    }
+    else{openChat();addMsg('bot',`Balapan sedang berlangsung: kamu ${S.got}, Original ${S.originalGot}.`)}
+    return;
+  }
+  if(!S.questStarted){
+    S.questStarted=true;S.running=true;S.t0=performance.now();
+    openChat();addMsg('bot','Misi kita dimulai! Kumpulkan semua mangkuk mie di sekitar kota, lalu kembali ke sini. Aku akan menunggumu!');
+  }else if(S.questReady){finish()}
+  else{openChat();addMsg('bot','Mangkuk mie masih tersebar. Ikuti panah kuning, ya!')}
+}
 function clearBowls(){
   for(const group of [...bowlGroup.children]){
     group.traverse(o=>{if(o.geometry)o.geometry.dispose()});
     bowlGroup.remove(group);
   }
-  S.bowls=[];S.got=0;
+  S.bowls=[];S.got=0;S.originalGot=0;
 }
 function placeBowls(cands,seed){
   clearBowls();
@@ -346,16 +945,29 @@ function placeBowls(cands,seed){
       if(d>bd){bd=d;best=c}}
     if(!best||bd<9)break;picked.push(best);pool=pool.filter(p=>p!==best);
   }
-  for(const p of picked){const m=makeBowl();m.position.set(p.x,p.y+0.15,p.z);bowlGroup.add(m);S.bowls.push({m,x:p.x,y:p.y,z:p.z,got:false,ph:r()*6})}
+  for(const p of picked){const m=makeBowl();m.position.set(p.x,p.y+0.15,p.z);bowlGroup.add(m);S.bowls.push({id:S.bowls.length,m,x:p.x,y:p.y,z:p.z,got:false,ph:r()*6})}
   updateScore();
 }
 const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
-function updateScore(){$('#score').textContent=S.got+'/'+S.bowls.length}
+function updateScore(){
+  $('#score').textContent=S.mode==='race'?`Kamu ${S.got} · Original ${S.originalGot}`:`${S.got}/${S.bowls.length}`;
+}
+function updateRaceStaminaHud(){
+  const playerValue=Math.round(S.stamina),npcValue=Math.round(npcAI.raceStamina);
+  $('#playerStaminaFill').style.width=playerValue+'%';
+  $('#npcStaminaFill').style.width=npcValue+'%';
+  $('#playerSprintStatus').textContent=S.sprintCooldown>0?`Pulih ${S.sprintCooldown.toFixed(1)}s`:S.sprinting?'Sprint':playerValue<100?'Isi ulang':'Siap';
+  $('#npcSprintStatus').textContent=npcAI.raceSprintCooldown>0?`Pulih ${npcAI.raceSprintCooldown.toFixed(1)}s`:npcAI.raceSprinting?'Sprint':npcValue<100?'Isi ulang':'Siap';
+  $('#playerStaminaFill').parentElement.setAttribute('aria-valuenow',String(playerValue));
+  $('#npcStaminaFill').parentElement.setAttribute('aria-valuenow',String(npcValue));
+}
 
 /* ---------- input ---------- */
 const keys={};const joy={id:null,x:0,y:0,mag:0};let camDrag=null;
 addEventListener('keydown',e=>{
   if(S.chat){if(e.key==='Escape')closeChat();return}
+  if((e.key==='e'||e.key==='E')&&canInteractOriginal()){e.preventDefault();interactWithOriginal();return}
+  if((e.key==='e'||e.key==='E')&&canSitAtSofa()){e.preventDefault();sitOnSofa();return}
   if(e.key==='t'||e.key==='T'||e.key==='Enter'){e.preventDefault();openChat();return}
   keys[e.code]=true;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
@@ -363,6 +975,8 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{keys[e.code]=false});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 const joyEl=$('#joy'),knob=joyEl.querySelector('i'),JR=55;
+sitPrompt.addEventListener('click',sitOnSofa);
+interactPrompt.addEventListener('click',interactWithOriginal);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('pointerdown',e=>{
   if(S.chat)return;
@@ -405,12 +1019,22 @@ function readInput(){
 /* ---------- gerak + tabrakan ---------- */
 const mv=new THREE.Vector3();
 function step(dt){
-  if(S.chat||S.done){S.speed=lerp(S.speed,0,1-Math.exp(-12*dt));return}
+  if(S.chat||S.done){S.speed=lerp(S.speed,0,1-Math.exp(-12*dt));S.sprinting=false;return}
   const inp=readInput();
+  let sprinting=inp.run;
+  if(S.mode==='race'&&S.raceStarted){
+    if(S.sprintCooldown>0)S.sprintCooldown=Math.max(0,S.sprintCooldown-dt);
+    if(sprinting&&inp.active&&S.sprintCooldown<=0&&S.stamina>0){
+      S.stamina=Math.max(0,S.stamina-34*dt);
+      if(S.stamina===0)S.sprintCooldown=1.7;
+    }else if(S.sprintCooldown<=0)S.stamina=Math.min(100,S.stamina+22*dt);
+    if(S.sprintCooldown>0||S.stamina<=0)sprinting=false;
+  }
+  S.sprinting=!!(sprinting&&inp.active);
   const sy=Math.sin(S.camYaw),cy=Math.cos(S.camYaw);
   // maju = menjauhi kamera, kanan = (cos,-sin)
   mv.set(-sy*inp.y+cy*inp.x,0,-cy*inp.y-sy*inp.x);
-  const want=inp.active?(inp.run?CFG.run:CFG.walk*Math.max(.45,inp.analog)):0;
+  const want=inp.active?(sprinting?CFG.run:CFG.walk*Math.max(.45,inp.analog)):0;
   S.speed=lerp(S.speed,want,1-Math.exp(-(want>S.speed?9:14)*dt));
   if(inp.active&&mv.lengthSq()>1e-4){
     mv.normalize();
@@ -429,9 +1053,14 @@ function step(dt){
       if(dot<0){dx-=_n.x*dot;dz-=_n.z*dot}
       if(hit.distance<CFG.radius){const push=CFG.radius-hit.distance;dx+=_n.x*push*.6;dz+=_n.z*push*.6}
     }
-    const gx=p.x+dx,gz=p.z+dz;
+    let gx=p.x+dx,gz=p.z+dz;
+    if(S.mode==='home'&&!canExploreHome(gx,gz)){
+      const canX=canExploreHome(gx,p.z),canZ=canExploreHome(p.x,gz);
+      if(canX)gz=p.z;else if(canZ)gx=p.x;else{gx=p.x;gz=p.z}
+      dx=gx-p.x;dz=gz-p.z;
+    }
     const g=groundAt(gx,gz,p.y+1.3,5);
-    if(g!==null&&g-p.y<=CFG.stepUp&&g>groundLevel-6){p.x=gx;p.z=gz}
+    if(g!==null&&g-p.y<=CFG.stepUp&&(S.mode==='home'||g>groundLevel-6)){p.x=gx;p.z=gz}
     else{ // coba geser satu sumbu
       const g1=groundAt(p.x+dx,p.z,p.y+1.3,5),g2=groundAt(p.x,p.z+dz,p.y+1.3,5);
       if(g1!==null&&g1-p.y<=CFG.stepUp)p.x+=dx;else if(g2!==null&&g2-p.y<=CFG.stepUp)p.z+=dz;
@@ -439,6 +1068,10 @@ function step(dt){
   }
   const gy=groundAt(S.pos.x,S.pos.z,S.pos.y+1.3,8);
   if(gy!==null){S.pos.y=gy>S.pos.y?lerp(S.pos.y,gy,1-Math.exp(-20*dt)):lerp(S.pos.y,gy,1-Math.exp(-14*dt))}
+  if(S.mode==='home'){
+    const bounded=constrainHomePosition(S.pos.x,S.pos.z);
+    S.pos.x=bounded.x;S.pos.z=bounded.z;
+  }
 }
 
 /* ---------- kamera ---------- */
@@ -449,11 +1082,19 @@ function updateCamera(dt){
   _d.set(Math.sin(S.camYaw)*cp,sp,Math.cos(S.camYaw)*cp);
   let dist=S.camDist;
   const h=cast(camT.x,camT.y,camT.z,_d.x,_d.y,_d.z,dist+0.4);
-  if(h)dist=Math.max(0.6,h.distance-0.35);
+  if(h)dist=h.distance>0.35?h.distance-0.25:Math.max(0.03,h.distance*0.5);
   camP.copy(camT).addScaledVector(_d,dist);
+  if(activeMap?.home){
+    camP.x=clamp(camP.x,HOME_ZONE.minX+0.2,HOME_ZONE.maxX-0.2);
+    camP.z=clamp(camP.z,HOME_ZONE.minZ+0.2,HOME_ZONE.cameraMaxZ-0.2);
+  }
   // jangan tembus tanah
   const gy=groundAt(camP.x,camP.z,camP.y+2,6);if(gy!==null&&camP.y<gy+0.35)camP.y=gy+0.35;
   camera.position.lerp(camP,1-Math.exp(-(h?30:18)*dt));
+  if(activeMap?.home){
+    camera.position.x=clamp(camera.position.x,HOME_ZONE.minX+0.2,HOME_ZONE.maxX-0.2);
+    camera.position.z=clamp(camera.position.z,HOME_ZONE.minZ+0.2,HOME_ZONE.cameraMaxZ-0.2);
+  }
   camera.lookAt(camT);
 }
 
@@ -465,7 +1106,7 @@ const LINES_GOT=[
   'Satu lagi di kantong! Aku mulai laper beneran nih.','Tambah telur setengah matang dan hidup ini lengkap.',
   'Mantap! Kalau ada yang lihat kita, bilang aja lagi olahraga cari makan.'
 ];
-const LINES_START=['Halo! Aku Original. Ada mangkuk mie tersembunyi di sekitar kampus. Ikuti panah kuning ya!','Kampusnya sepi, tapi mie-nya ramai. Yuk jalan!'];
+const LINES_START=['Temui Original dan tekan E untuk menerima misi mie. Setelah terkumpul, kembali lagi ke sana!','Original menunggumu di kota. Mulai misi dengan berbicara dengannya!'];
 
 /* ---------- chat AI ---------- */
 const hist=[];
@@ -540,12 +1181,35 @@ function openChat(){
   if(S.chat||!S.ready)return;S.chat=true;joy.id=null;joy.mag=joy.x=joy.y=0;joyEl.style.display='none';
   for(const k in keys)keys[k]=false;
   $('#chat').classList.add('on');
-  if(!msgs.children.length)addMsg('bot','Halo! Aku Original. Mau ngobrol apa sambil jalan-jalan?');
-  if(!isTouch)setTimeout(()=>$('#cin').focus(),280);
+  $('#chead small').textContent=seated?'Duduk santai di sofa':'The Loyal Companion';
+  if(!msgs.children.length)addMsg('bot',seated?'Nyaman juga duduk di sini. Mau ngobrol apa?':'Halo! Aku Original. Mau ngobrol apa sambil jalan-jalan?');
+  $('#raceChallenge').hidden=!(S.mode==='race'&&S.raceChallengePending&&!S.raceStarted);
+  setTimeout(()=>$('#cin').focus(),280);
 }
-function closeChat(){S.chat=false;$('#chat').classList.remove('on');$('#cin').blur();canvas.focus()}
+function closeChat(){
+  S.chat=false;$('#chat').classList.remove('on');$('#cin').blur();
+  if(seated){
+    seated=false;S.pos.set(SOFA_SEAT.x,SOFA_SEAT.y,clamp(SOFA_SEAT.z+1.05,HOME_ZONE.minZ+0.5,HOME_ZONE.maxZ-0.5));
+    S.face=seatCameraReturn?.face??Math.PI;S.camYaw=seatCameraReturn?.yaw??0;
+    S.camPitch=seatCameraReturn?.pitch??.32;S.camDist=seatCameraReturn?.dist??CFG.camDist;
+    S.speed=0;seatCameraReturn=null;
+  }
+  $('#chead small').textContent='The Loyal Companion';canvas.focus();
+}
 $('#chatBtn').addEventListener('click',()=>S.chat?closeChat():openChat());
 $('#cx').addEventListener('click',closeChat);
+$('#raceAccept').addEventListener('click',()=>{
+  if(!S.raceChallengePending||S.raceStarted)return;
+  S.raceChallengePending=false;S.raceStarted=true;S.running=true;S.t0=performance.now();
+  S.stamina=100;S.sprintCooldown=0;S.sprinting=false;
+  npcAI.raceTarget=null;npcAI.raceStuck=0;npcAI.raceSkipped={};npcAI.raceStamina=100;npcAI.raceSprintCooldown=0;npcAI.raceSprinting=false;
+  npcAI.racePath=[];npcAI.racePathIndex=0;npcAI.raceBlockedEdges={};npcAI.raceReplanCount=0;npcAI.raceRetryAt=0;
+  chooseRaceBowl();setRaceModeStatus(raceModeLabel());
+  $('#raceChallenge').hidden=true;
+  addMsg('me','Aku terima tantangannya!');
+  addMsg('bot','Asyik! Ayo mulai—aku akan lewat jalan-jalan besar supaya bisa mengambil mie sebanyak-banyaknya!');
+  updateRaceStaminaHud();closeChat();say('Balapan dimulai! Kumpulkan mie lebih banyak dari Original.');
+});
 $('#cform').addEventListener('submit',async e=>{
   e.preventDefault();const inp=$('#cin');const t=inp.value.trim();if(!t)return;inp.value='';
   addMsg('me',t);hist.push({who:'me',text:t});
@@ -559,59 +1223,93 @@ let last=performance.now(),clock=0,cands=[];
 function frame(now){
   requestAnimationFrame(frame);
   const dt=Math.min(0.05,(now-last)/1000);last=now;clock+=dt;
-  if(!S.ready){renderer.render(scene,camera);return}
+  if(!S.ready){sitPrompt.hidden=true;interactPrompt.hidden=true;renderer.render(scene,camera);return}
   step(dt);
+  const nearOriginal=canInteractOriginal();
+  interactPrompt.hidden=!nearOriginal;
+  const interaction=activeMap?.home?'Ngobrol dengan Original':activeMapId==='after-rain'?(S.raceStarted?'Lihat skor balapan':'Dengar tantangan Original'):!S.questStarted?'Mulai misi bersama Original':S.questReady?'Serahkan mie ke Original':'Bicara dengan Original';
+  interactPrompt.textContent=isTouch?'💬 '+interaction:'E · '+interaction;
+  sitPrompt.hidden=nearOriginal||!canSitAtSofa();
+  player.rotation.y=S.face;
   poseCharacter(dt,S.speed,clock);
   player.position.set(S.pos.x,S.pos.y+(rig.bob||0),S.pos.z);
-  player.rotation.y=S.face;
   if(rig.root)rig.root.rotation.x=rig.lean||0;
+  if(npcPosition)updateOriginalNpc(dt,clock);
+  $('#raceStamina').hidden=S.mode!=='race';
+  $('#raceModeStatus').hidden=S.mode!=='race';
+  if(S.mode==='race')updateRaceStaminaHud();
   shadow.position.set(S.pos.x,S.pos.y+0.03,S.pos.z);
   updateCamera(dt);
   // mangkuk
   let nearest=null,nd=1e9;
   for(const b of S.bowls){
-    if(b.got)continue;
+    if(b.got||S.done)continue;
     b.m.rotation.y+=dt*1.6;b.m.position.y=b.y+0.15+Math.sin(clock*2+b.ph)*0.08;
     const d=Math.hypot(b.x-S.pos.x,b.z-S.pos.z);
     if(d<nd){nd=d;nearest=b}
-    if(d<CFG.pickup&&Math.abs(b.y-S.pos.y)<2){
+    if(S.mode==='race'&&S.raceStarted&&d<CFG.pickup&&Math.abs(b.y-S.pos.y)<2){
       b.got=true;bowlGroup.remove(b.m);S.got++;updateScore();
-      if(S.got===S.bowls.length)finish();else say(LINES_GOT[Math.floor(Math.random()*LINES_GOT.length)]);
+      if(S.got+S.originalGot>=S.bowls.length)finishRace();
+    }else if(S.mode!=='race'&&S.questStarted&&!S.questReady&&d<CFG.pickup&&Math.abs(b.y-S.pos.y)<2){
+      b.got=true;bowlGroup.remove(b.m);S.got++;updateScore();
+      if(S.got===S.bowls.length){S.questReady=true;S.running=false;say('Semua mie sudah terkumpul! Kembali ke Original untuk menyelesaikan misi.')}
+      else say(LINES_GOT[Math.floor(Math.random()*LINES_GOT.length)]);
     }
   }
-  if(nearest){
-    const dx=nearest.x-S.pos.x,dz=nearest.z-S.pos.z;
+  const target=S.mode==='race'&&S.raceStarted?nearest:(!S.questStarted||S.questReady)&&npcPosition?npcPosition:nearest;
+  if(target){
+    const dx=target.x-S.pos.x,dz=target.z-S.pos.z;
     const sy=Math.sin(S.camYaw),cy=Math.cos(S.camYaw);
     const right=dx*cy-dz*sy,fwd=-dx*sy-dz*cy;
-    arrow.style.transform=`rotate(${Math.atan2(right,fwd)}rad)`;distEl.textContent=Math.round(nd)+' m';
+    arrow.style.transform=`rotate(${Math.atan2(right,fwd)}rad)`;distEl.textContent=Math.round(Math.hypot(dx,dz))+' m';
   }else{distEl.textContent='—'}
   if(S.running&&!S.done)$('#timer').textContent=fmt((performance.now()-S.t0)/1000);
   renderer.render(scene,camera);
 }
 function finish(){
   S.done=true;S.running=false;const t=(performance.now()-S.t0)/1000;
-  $('#winTxt').textContent=`Semua ${S.bowls.length} mangkuk terkumpul dalam ${fmt(t)}. Original kenyang dan senang!`;
+  $('#winTxt').textContent=`Semua ${S.bowls.length} mangkuk terkumpul dalam ${fmt(t)}. Misi selesai bersama Original!`;
   say('Kenyang! Makasih sudah menemaniku jalan-jalan.',6000);
   setTimeout(()=>$('#win').classList.add('on'),900);
 }
+function finishRace(){
+  if(S.done)return;
+  S.done=true;S.running=false;
+  const t=(performance.now()-S.t0)/1000;
+  const result=S.got>S.originalGot?'Kamu menang!':S.got<S.originalGot?'Original menang!':'Seri!';
+  $('#win h2').textContent=`${result} 🏁`;
+  $('#winTxt').textContent=`Balapan selesai dalam ${fmt(t)}. Skor akhir: kamu ${S.got}, Original ${S.originalGot}.`;
+  say(result==='Kamu menang!'?'Kamu mengumpulkan mie terbanyak. Selamat!':result==='Original menang!'?'Kali ini Original mengumpulkan mie lebih banyak. Coba lagi!':'Skor kita seri. Balapan lagi?',6000);
+  setTimeout(()=>$('#win').classList.add('on'),900);
+}
 function startRun(seed){
-  S.pos.copy(spawn);S.face=Math.PI;S.camYaw=0;S.camPitch=.32;S.speed=0;S.done=false;S.t0=performance.now();
-  S.mode=activeMap?.home?'home':'collect';
+  seated=false;seatCameraReturn=null;
+  S.pos.copy(spawn);S.face=Math.PI;S.camYaw=0;S.camPitch=.32;S.speed=0;S.done=false;S.t0=0;S.questStarted=false;S.questReady=false;S.raceStarted=false;S.raceChallengePending=false;S.raceChallengeShown=false;S.stamina=100;S.sprintCooldown=0;S.sprinting=false;S.originalGot=0;
+  $('#timer').textContent='0:00';
+  S.mode=activeMap?.home?'home':activeMapId==='after-rain'?'race':'collect';
   if(S.mode==='home'){clearBowls();S.running=false;updateScore()}
-  else{S.running=true;placeBowls(cands,seed)}
+  else{S.running=false;placeBowls(cands,seed)}
+  if(npcPosition&&!activeMap?.home){
+    npcPosition.x=npcAI.anchor.x;npcPosition.y=npcAI.anchor.y;npcPosition.z=npcAI.anchor.z;
+    npcGroup.position.set(npcPosition.x,npcPosition.y,npcPosition.z);initOriginalNpcAI();npcAI.raceStamina=100;npcAI.raceSprintCooldown=0;npcAI.raceSprinting=false;
+  }
   $('#hudL').style.display=S.mode==='home'?'none':'flex';
+  $('#raceStamina').hidden=S.mode!=='race';
+  if(S.mode==='race')updateRaceStaminaHud();
+  if(S.mode==='race')setRaceModeStatus(raceModeLabel());
   $('#compass').style.display=S.mode==='home'?'none':'flex';
-  $('#hint').textContent=S.mode==='home'?'Free roam di rumah · WASD / panah: jalan · Shift: lari · seret mouse: putar kamera · T: ngobrol':'WASD / panah: jalan · Shift: lari · seret mouse: putar kamera · T: ngobrol';
+  $('#hint').textContent=S.mode==='home'?'Free roam di rumah · WASD / panah: jalan · Shift: lari · E: duduk / ngobrol dengan Original · T: ngobrol':S.mode==='race'?'Balapan mie · Bicara lalu terima tantangan Original · Shift: lari (stamina)':'WASD / panah: jalan · Shift: lari · E: bicara dengan Original · T: ngobrol';
+  $('#win h2').textContent=S.mode==='race'?'Balapan selesai! 🏁':'Misi selesai! 🎉';
   $('#win').classList.remove('on');
   camera.position.set(spawn.x,spawn.y+3,spawn.z+CFG.camDist);
 }
 $('#again').addEventListener('click',()=>startRun(Math.floor(Math.random()*1e6)));
 const mapSelect=$('#mapSelect'),mapContinue=$('#mapContinue');
-let mapPauseStarted=0,mapWasRunning=false,aiLoadStarted=false;
+let mapPauseStarted=0,mapWasRunning=false,aiLoadStarted=false,selectedRaceDifficulty='normal';
 function openMapSelect(){
   if(S.chat)closeChat();
   mapWasRunning=S.running;mapPauseStarted=performance.now();S.running=false;S.ready=false;
-  $('#mapError').textContent='';mapContinue.hidden=!activeMap;mapSelect.classList.remove('hidden');
+  $('#mapError').textContent='';mapContinue.hidden=!activeMap;$('#raceDifficultyPanel').hidden=true;mapSelect.classList.remove('hidden');
 }
 function closeMapSelect(){
   mapSelect.classList.add('hidden');
@@ -620,43 +1318,86 @@ function closeMapSelect(){
   mapWasRunning=false;
 }
 $('#mapBtn').addEventListener('click',openMapSelect);
-mapContinue.addEventListener('click',closeMapSelect);
-for(const button of document.querySelectorAll('[data-map]'))button.addEventListener('click',()=>activateMap(button.dataset.map));
-async function activateMap(id){
+mapContinue.addEventListener('click',()=>activeMap&&selectedCharacter!==installedCharacter?activateMap(activeMapId,raceDifficulty):closeMapSelect());
+for(const button of document.querySelectorAll('[data-character]')){
+  button.setAttribute('aria-pressed',String(button.dataset.character===selectedCharacter));
+  button.addEventListener('click',()=>{
+    selectedCharacter=button.dataset.character;
+    try{localStorage.setItem('indomieverse-character',selectedCharacter)}catch{}
+    for(const card of document.querySelectorAll('[data-character]'))card.setAttribute('aria-pressed',String(card.dataset.character===selectedCharacter));
+  });
+}
+for(const button of document.querySelectorAll('[data-difficulty]'))button.addEventListener('click',()=>{
+  selectedRaceDifficulty=button.dataset.difficulty;
+  for(const card of document.querySelectorAll('[data-difficulty]'))card.setAttribute('aria-pressed',String(card.dataset.difficulty===selectedRaceDifficulty));
+});
+for(const button of document.querySelectorAll('[data-map]'))button.addEventListener('click',()=>{
+  if(button.dataset.map==='after-rain'){
+    selectedRaceDifficulty=activeMapId==='after-rain'?raceDifficulty:'normal';
+    for(const card of document.querySelectorAll('[data-difficulty]'))card.setAttribute('aria-pressed',String(card.dataset.difficulty===selectedRaceDifficulty));
+    $('#raceDifficultyPanel').hidden=false;return;
+  }
+  $('#raceDifficultyPanel').hidden=true;activateMap(button.dataset.map);
+});
+$('#startRaceMap').addEventListener('click',()=>{
+  $('#raceDifficultyPanel').hidden=true;activateMap('after-rain',selectedRaceDifficulty);
+});
+let activeMapId='campus';
+async function activateMap(id,difficulty=raceDifficulty){
   const next=MAPS[id];if(!next)return;
-  if(activeMap?.url===next.url){closeMapSelect();return}
+  const previousDifficulty=raceDifficulty;if(id==='after-rain')raceDifficulty=difficulty==='hard'?'hard':'normal';
+  if(activeMap?.url===next.url&&installedCharacter===selectedCharacter){
+    closeMapSelect();if(id==='after-rain'&&previousDifficulty!==raceDifficulty)startRun(11);return;
+  }
   let replacedMap=false;
   S.ready=false;S.running=false;$('#mapError').textContent='';mapSelect.classList.add('hidden');
   $('#load').style.display='grid';$('#load').classList.remove('off');
   $('#lmsg').textContent=`Memuat ${next.name}…`;$('#load h1').innerHTML=`INDOMIE<em>VERSE</em> 3D`;
-  $('#load p').textContent=next.home?'Free roam di interior bersama Original':'Jalan-jalan dan kumpulkan mie bersama Original';
+  $('#load p').textContent=next.home?'Free roam di interior bersama Original':id==='after-rain'?'Balapan mie melawan Original':'Jalan-jalan dan kumpulkan mie bersama Original';
   prog.a=characterGltf?1:0;prog.b=0;setProg();
   try{
-    const charPromise=characterGltf?Promise.resolve(characterGltf):loadGLB(CFG.charUrl,'a').then(g=>{characterGltf=g;return g});
-    const [cg,mg]=await Promise.all([charPromise,loadGLB(next.url,'b')]);
+    const originalPromise=characterGltf?Promise.resolve(characterGltf):loadGLB(CFG.charUrl,'a').then(g=>{characterGltf=g;return g});
+    const playerPromise=selectedCharacter==='mavuika'
+      ?(mavuikaGltf?Promise.resolve(mavuikaGltf):loadGLB(CFG.mavuikaUrl,'a').then(g=>{mavuikaGltf=g;return g}))
+      :originalPromise;
+    const [og,pg,mg]=await Promise.all([originalPromise,playerPromise,loadGLB(next.url,'b')]);
     $('#lmsg').textContent='Menyiapkan environment…';
     await new Promise(r=>setTimeout(r,30));
     disposeMap();clearBowls();activeMap=null;replacedMap=true;
     buildMap(mg);
-    if(!player.children.length)player.add(buildCharacter(cg));
-    cands=findWalkables();
-    if(!cands.length)throw new Error('Tidak ditemukan lantai yang bisa dijelajahi pada '+next.name+'.');
-    const center=mapBox.getCenter(new THREE.Vector3());
-    cands.sort((a,b)=>Math.hypot(a.x-center.x,a.z-center.z)-Math.hypot(b.x-center.x,b.z-center.z));
-    const requestedSpawn=new URLSearchParams(location.search).get('spawn');
-    const sp=requestedSpawn?cands[Math.min(cands.length-1,Math.max(0,+requestedSpawn||0))]:cands[0];
-    spawn.set(sp.x,sp.y,sp.z);activeMap=next;S.ready=true;startRun(11);
+    if(next.home)buildHomeGlass();
+    if(installedCharacter!==selectedCharacter)installPlayerCharacter(selectedCharacter,og,selectedCharacter==='mavuika'?pg:null);
+    let sp;
+    if(next.home){
+      const floor=groundAt(HOME_ZONE.spawn.x,HOME_ZONE.spawn.z,2,4);
+      if(floor===null)throw new Error('Lantai area sofa Home tidak ditemukan.');
+      sp={x:HOME_ZONE.spawn.x,y:floor+0.04,z:HOME_ZONE.spawn.z};cands=[sp];
+    }else{
+      cands=findWalkables();
+      if(!cands.length)throw new Error('Tidak ditemukan lantai yang bisa dijelajahi pada '+next.name+'.');
+      const center=mapBox.getCenter(new THREE.Vector3());
+      cands.sort((a,b)=>Math.hypot(a.x-center.x,a.z-center.z)-Math.hypot(b.x-center.x,b.z-center.z));
+      const requestedSpawn=new URLSearchParams(location.search).get('spawn');
+      sp=requestedSpawn?cands[Math.min(cands.length-1,Math.max(0,+requestedSpawn||0))]:cands[0];
+    }
+    spawn.set(sp.x,sp.y,sp.z);activeMap=next;activeMapId=id;
+    raceGraph=id==='after-rain'?buildRaceGraph(cands,walkableGridStep()):null;
+    placeOriginalNpc(og,next,cands);
+    if(next.home)SOFA_SEAT.y=sp.y;
+    player.scale.setScalar(rig.baseScale*(next.home?0.82:1));
+    camera.far=next.home?120:700;camera.updateProjectionMatrix();
+    S.ready=true;startRun(11);
     $('#mapError').textContent='';
     $('#load').classList.add('off');setTimeout(()=>$('#load').style.display='none',600);
     if(!next.home)setTimeout(()=>say(LINES_START[Math.floor(Math.random()*LINES_START.length)],5200),700);
     else setTimeout(()=>say('Selamat datang di rumah. Santai saja, kita bebas menjelajah di sini.',5200),700);
     setTimeout(()=>{$('#hint').style.opacity=0},9000);$('#hint').style.opacity=1;
     document.title=`INDOMIEVERSE 3D — ${next.name}`;
-    window.__g={S,THREE,scene,camera,renderer,cands,spawn,CFG,MAPS,activeMap,rig,keys,startRun,groundAt,cast,colliders};
+    window.__g={S,THREE,scene,camera,renderer,cands,spawn,CFG,MAPS,activeMap,rig,keys,startRun,groundAt,cast,colliders,npcGroup,npcPosition,selectedCharacter};
     if(!aiLoadStarted){aiLoadStarted=true;loadAI().catch(err=>console.warn('[AI] Gagal memuat konfigurasi; chat tetap memakai balasan offline.',err))}
   }catch(err){
     console.error(err);
-    if(replacedMap){disposeMap();activeMap=null;S.ready=false}else S.ready=!!activeMap;
+    if(replacedMap){disposeMap();npcGroup.clear();npcGroup.visible=false;npcPosition=null;activeMap=null;S.ready=false}else S.ready=!!activeMap;
     $('#load').classList.add('off');setTimeout(()=>$('#load').style.display='none',600);
     $('#mapError').textContent='Gagal memuat '+next.name+': '+(err?.message||err);
     mapContinue.hidden=!activeMap;mapSelect.classList.remove('hidden');

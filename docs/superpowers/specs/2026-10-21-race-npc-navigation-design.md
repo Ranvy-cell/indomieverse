@@ -1,10 +1,10 @@
-# Desain: Navigasi Balapan NPC dan Difficulty Gemini
+# Desain: Navigasi Balapan NPC dan Difficulty Lokal
 
 Tanggal: 2026-10-21
 
 ## Tujuan
 
-Perbaiki balapan map After the Rain agar NPC Original tidak berputar di batas atau terus mengejar mangkuk mie yang tidak terjangkau. Tambahkan pilihan kesulitan Normal dan Hard. Normal harus bergerak memakai navigasi lokal yang deterministik; Hard boleh memakai Gemini untuk keputusan strategis, sementara gerak dan koreksi tabrakan tetap berlangsung lokal setiap frame.
+Perbaiki balapan map After the Rain agar NPC Original tidak berputar di batas atau terus mengejar mangkuk mie yang tidak terjangkau. Tambahkan pilihan kesulitan Normal dan Hard yang sepenuhnya lokal tanpa layanan AI eksternal. Normal memakai target dari rute lokal; Hard membuat Original melihat satu target berikutnya dan merespons lebih cepat, sementara kecepatan standar pemain tetap.
 
 ## Temuan pada implementasi saat ini
 
@@ -25,45 +25,33 @@ Perbaiki balapan map After the Rain agar NPC Original tidak berputar di batas at
 
 - Tambahkan pilihan Normal/Hard yang tampil untuk map After the Rain. Simpan pilihan hanya untuk sesi balapan saat ini; nilai awal Normal.
 - Normal memakai graf, A*, pemilihan jalan lebar, deteksi dead-end, dan replanning lokal. Kesulitan ini tidak memerlukan API key atau jaringan.
-- Hard memakai sistem navigasi lokal yang sama, tetapi meminta Gemini memilih ID target mangkuk strategis dari kandidat yang sudah tervalidasi. Keputusan hanya diminta saat balapan dimulai, sesudah NPC mengambil mie, atau setelah beberapa kali gagal membuat progres; bukan setiap frame.
-- Kegagalan jaringan, jawaban yang tidak valid, timeout, atau proxy tidak tersedia selalu kembali ke pemilihan Normal tanpa menghentikan balapan.
-- UI menampilkan status yang jelas bila Hard sedang memakai fallback lokal.
-
-### Proxy Gemini Node
-
-- Tambahkan layanan Node.js ringan tanpa dependency eksternal di `tools/race-ai-proxy.mjs`, menggunakan modul bawaan Node. Kunci API hanya dibaca dari environment `GEMINI_API_KEY`; model dan port dapat dikonfigurasi lewat environment.
-- Endpoint menerima konteks ringkas yang divalidasi (ID target yang masih tersedia, jarak jalur, konektivitas jalan, serta ringkasan tujuan). Proxy meminta Gemini mengembalikan satu ID target terpilih dalam JSON terstruktur.
-- Proxy membatasi ukuran request, origin yang diizinkan, metode, timeout, dan frekuensi request per klien. Ia tidak menerima URL/model arbitrer dari browser dan tidak mengembalikan secret.
-- Browser hanya boleh menerima ID yang termasuk dalam allowlist kandidat aktif dan tetap menghitung rute/gerakan di dalam game. JSON dari Gemini diperlakukan sebagai saran yang tidak tepercaya.
-- Dokumentasikan cara menjalankan proxy lokal bersama server statis. Deploy Hard memerlukan proxy Node yang tersedia melalui HTTPS dan origin game yang diizinkan. Tanpa konfigurasi itu, Normal tetap berfungsi.
+- Hard memakai graf jalur lokal dan memilih mie dengan skor dua langkah: biaya menuju target saat ini ditambah perkiraan biaya ke mie berikutnya, dengan preferensi kecil untuk cluster dan koridor lebar. Pencarian dibatasi ke enam kandidat teratas agar keputusan strategis tetap ringan.
+- Hard mempertahankan kecepatan jalan dan sprint pemain seperti biasa. Original bereaksi lebih cepat: belokan dan akselerasi lebih sigap, memulai sprint dari jarak lebih jauh, dan mulai mencari ulang jalur setelah terhambat selama 0,65 detik (Normal 1,15 detik). Kecepatan maksimum Original tetap sama.
+- Gerak pemain dan Original, collision, stamina, pengumpulan mie, serta replanning tetap lokal setiap frame. Tidak ada request AI, fallback jaringan, API key, atau proxy untuk mode balapan.
 
 ## Alur data
 
 1. Map dimuat dan sampel lantai yang lulus pemeriksaan membentuk graf.
 2. Balapan dimulai setelah pemain menerima tantangan Original; kesulitan sesi sudah dipilih dari pemilih map.
 3. Pengendali lokal menghitung kandidat mie terjangkau dan rute A*.
-4. Normal memilih kandidat terbaik secara lokal. Hard mengirim daftar kandidat terbatas ke proxy, yang meminta Gemini mengembalikan satu ID.
-5. Game memvalidasi ID dan menghitung ulang rute lokal. NPC bergerak menuju waypoint dengan collision dan stamina lokal.
+4. Normal memilih kandidat terbaik secara lokal. Hard membandingkan biaya rute menuju kandidat dan biaya perkiraan menuju mie berikutnya.
+5. Game menetapkan rute dari graf lokal. NPC bergerak menuju waypoint dengan collision dan stamina lokal.
 6. Jika gerak tidak membuat progres, edge ditandai gagal sementara, lalu rute dicari ulang atau NPC mundur ke persimpangan.
-7. Saat target didapat atau rute buntu, proses pemilihan berjalan lagi. Proxy gagal berarti fallback ke Normal.
+7. Saat target didapat atau rute buntu, proses pemilihan lokal berjalan lagi.
 
 ## Komponen yang berubah
 
-- `game.html`: kontrol kesulitan After the Rain, graf dan pathfinding balapan, logika target/replanning, serta pemanggilan proxy berfrekuensi rendah dan fallback.
-- `tools/race-ai-proxy.mjs`: endpoint proxy Gemini Node yang dibatasi dan memakai environment untuk secret.
-- `README.md`: instruksi konfigurasi dan menjalankan layanan proxy secara lokal serta catatan bahwa Hard membutuhkan endpoint publik HTTPS untuk deploy.
+- `game.html`: kontrol kesulitan After the Rain, graf dan pathfinding balapan, logika target/replanning, strategi Hard dua langkah, dan respons NPC Hard yang lebih sigap.
+- `README.md`: instruksi menjalankan game dan perbedaan aturan Normal/Hard tanpa layanan eksternal.
 
 ## Batasan dan keamanan
 
-- Gemini tidak mengendalikan posisi, yaw, kecepatan, collision, stamina, atau memilih titik di luar kandidat graph. Ia hanya menyarankan target strategis.
-- Tidak ada API key yang dimasukkan ke HTML, localStorage, query string, atau respons endpoint.
-- Proxy publik tetap dapat menimbulkan biaya API; batasi origin, request rate, ukuran payload, dan timeout. Jangan deploy tanpa batasan tersebut.
-- Map harus dilayani melalui HTTP(S); mode `file://` tidak dapat diandalkan untuk memanggil proxy lintas origin. Gameplay Normal tidak bergantung pada proxy.
+- Balapan tidak mengirim data ke layanan AI dan tidak memerlukan API key.
+- Map harus dilayani melalui HTTP(S) agar modul dan aset game dapat dimuat.
 
 ## Verifikasi yang direncanakan
 
 - Tinjau secara statis keterhubungan node, pemeriksaan edge, dan validasi kandidat target.
-- Periksa syntax JavaScript modul proxy dan script game, serta format patch.
-- Jalankan game/proxy lokal bila environment tersedia untuk memeriksa perjalanan NPC dari dead end ke persimpangan dan fallback ketika Gemini gagal.
-- Jangan mengklaim Gemini atau perilaku runtime berfungsi sebelum jalur tersebut benar-benar dapat dijalankan. API key nyata tidak disimpan atau diminta dalam repository.
+- Periksa syntax inline JavaScript dan format patch.
+- Jalankan game lokal bila environment tersedia untuk memeriksa navigasi, kecepatan Hard, dan pengumpulan mie.
 
