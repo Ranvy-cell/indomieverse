@@ -325,10 +325,28 @@ function cast(ox,oy,oz,dx,dy,dz,far){
   const h=rc.intersectObjects(colliders,false);return h.length?h[0]:null;
 }
 const groundAt=(x,z,fromY,far=6)=>{const h=cast(x,fromY,z,0,-1,0,far);return h?h.point.y:null};
+function findSofaSeatY(floorY){
+  const hits=[],minY=floorY+.18,maxY=floorY+1.05;
+  for(const ox of [-.28,0,.28])for(const oz of [-.22,0,.22]){
+    // Cast only through the seat-height band. A room-wide cast hits ceiling and
+    // lamps first, hiding the cushion underneath them.
+    _o.set(SOFA_SEAT.x+ox,maxY+.03,SOFA_SEAT.z+oz);_d.set(0,-1,0);rc.set(_o,_d);rc.near=0;rc.far=maxY-minY+.06;
+    let highest=null;
+    for(const mesh of colliders){
+      const hit=rc.intersectObject(mesh,false)[0];
+      if(hit&&hit.point.y>=minY&&hit.point.y<=maxY)highest=Math.max(highest??-Infinity,hit.point.y);
+    }
+    if(highest!==null)hits.push(highest);
+  }
+  if(!hits.length)return floorY;
+  hits.sort((a,b)=>a-b);
+  return hits[Math.floor(hits.length/2)];
+}
 
 /* ---------- rangka karakter buatan (karena model tanpa skeleton) ---------- */
 const rig={};
-const SOFA_SEAT={x:7.8,z:7.05,y:0.04};
+// Seat point is on the middle cushion of the Home sofa, facing its open side.
+const SOFA_SEAT={x:7.8,z:5.05,y:0.04};
 let seated=false,seatCameraReturn=null;
 let selectedCharacter='original';try{selectedCharacter=localStorage.getItem('indomieverse-character')==='mavuika'?'mavuika':'original'}catch{}
 let installedCharacter='';
@@ -375,8 +393,8 @@ function installPlayerCharacter(id,original,mavuika){
       elbowL:limbAxis(byIndex(169),byIndex(170),AZ),elbowR:limbAxis(byIndex(200),byIndex(201),AZ),
       handL:limbAxis(byIndex(169),byIndex(170),AZ),handR:limbAxis(byIndex(200),byIndex(201),AZ)
     };
-    Object.assign(rig,{mode:'mavuika',mavuikaBones:bones,
-      pelvis:byIndex(6),thighL:byIndex(13),kneeL:byIndex(14),footL:byIndex(15),
+    Object.assign(rig,{mode:'mavuika',mavuikaBones:bones,model,modelBaseY:model.position.y,
+      pelvis:byIndex(6),pelvisBaseY:byIndex(6).position.y,thighL:byIndex(13),kneeL:byIndex(14),footL:byIndex(15),
       thighR:byIndex(24),kneeR:byIndex(25),footR:byIndex(26),
       spine:byIndex(35),neck:byIndex(36),head:byIndex(37),
       shoulderL:byIndex(164),elbowL:byIndex(169),handL:byIndex(170),
@@ -389,6 +407,22 @@ function installPlayerCharacter(id,original,mavuika){
     rig.baseScale=1;
   }
   installedCharacter=id;
+}
+function calibrateSofaPose(){
+  if(!activeMap?.home||!rig.pelvis)return;
+  // The pelvis pivot sits slightly above the cushion so the lower body surface
+  // meets the upholstery instead of clipping through it.
+  const seatAboveFloor=SOFA_SEAT.y-spawn.y+.08;
+  if(rig.mode==='mavuika'){
+    player.updateMatrixWorld(true);
+    const baseWorldY=rig.pelvis.getWorldPosition(new THREE.Vector3()).y-player.position.y;
+    const modelUnitsPerWorld=1/Math.max(.001,player.scale.y);
+    // Move the complete skinned model as one piece. Translating only the pelvis
+    // bone stretches this character's weighted mesh between the hips and torso.
+    rig.seatModelY=rig.modelBaseY+(seatAboveFloor-baseWorldY)*modelUnitsPerWorld;
+  }else{
+    rig.seatPelvisY=seatAboveFloor/Math.max(.001,player.scale.y);
+  }
 }
 function buildCharacter(gltf,targetRig=rig){
   const src=gltf.scene;src.updateMatrixWorld(true);
@@ -453,6 +487,7 @@ function applyWorldTurn(bone,axis,angle){
   bone.quaternion.premultiply(localTurn);
 }
 function poseCharacter(dt,speed,t){
+  const sitWeight=rig.seatBlend=lerp(rig.seatBlend||0,seated?1:0,1-Math.exp(-7*dt));
   if(rig.mode==='mavuika'){
     const walking=!seated&&speed>.08,target=clamp(speed/CFG.walk,0,2.4);
     rig.moveAmt=lerp(rig.moveAmt,target>.05?1:0,1-Math.exp(-10*dt));
@@ -466,12 +501,23 @@ function poseCharacter(dt,speed,t){
     const idle=Math.sin(t*1.6)*.03*(1-rig.moveAmt);
     for(const entry of rig.mavuikaBones)entry.bone.quaternion.copy(entry.base);
     // Match Original's alternating stride and opposite arm swing on Mavuika's own skin.
-    if(seated){
-      applyWorldTurn(rig.pelvis,AX,-.08);applyWorldTurn(rig.spine,AX,.08);
-      applyWorldTurn(rig.thighL,mavuikaAxis(rig.limbAxes.thighL),-.9);applyWorldTurn(rig.thighR,mavuikaAxis(rig.limbAxes.thighR),-.9);
-      applyWorldTurn(rig.kneeL,mavuikaAxis(rig.limbAxes.kneeL),-1.0);applyWorldTurn(rig.kneeR,mavuikaAxis(rig.limbAxes.kneeR),-1.0);
-      applyWorldTurn(rig.shoulderL,mavuikaAxis(rig.mavuikaForward),.42);applyWorldTurn(rig.shoulderR,mavuikaAxis(rig.mavuikaForward),-.42);
-      applyWorldTurn(rig.elbowL,mavuikaAxis(AX),.32);applyWorldTurn(rig.elbowR,mavuikaAxis(AX),.32);
+    const seatBreath=Math.sin(t*1.55);
+    rig.pelvis.position.y=rig.pelvisBaseY;
+    const seatModelY=rig.seatModelY??rig.modelBaseY;
+    rig.model.position.y=lerp(rig.model.position.y,rig.modelBaseY+(seatModelY-rig.modelBaseY)*sitWeight+seatBreath*.0007*sitWeight,1-Math.exp(-7*dt));
+    if(sitWeight>.01){
+      applyWorldTurn(rig.pelvis,AX,(-.06+seatBreath*.012)*sitWeight);applyWorldTurn(rig.spine,AX,(.07+seatBreath*.014)*sitWeight);
+      // Fold the thighs forward and bend the knees farther so the shins and
+      // feet clear the sofa front instead of cutting into its cushions.
+      applyWorldTurn(rig.thighL,mavuikaAxis(rig.limbAxes.thighL),1.12*sitWeight);applyWorldTurn(rig.thighR,mavuikaAxis(rig.limbAxes.thighR),1.12*sitWeight);
+      applyWorldTurn(rig.kneeL,mavuikaAxis(rig.limbAxes.kneeL),-1.22*sitWeight);applyWorldTurn(rig.kneeR,mavuikaAxis(rig.limbAxes.kneeR),-1.22*sitWeight);
+      // Drop the upper arms from the wide bind pose. Use each arm's derived
+      // bend axis at the elbows; a shared world X axis twists the two wrists
+      // differently because the left and right bones are mirrored.
+      applyWorldTurn(rig.shoulderL,mavuikaAxis(rig.mavuikaForward),1.12*sitWeight);applyWorldTurn(rig.shoulderR,mavuikaAxis(rig.mavuikaForward),-1.12*sitWeight);
+      applyWorldTurn(rig.elbowL,mavuikaAxis(rig.limbAxes.elbowL),.78*sitWeight);applyWorldTurn(rig.elbowR,mavuikaAxis(rig.limbAxes.elbowR),.78*sitWeight);
+      applyWorldTurn(rig.handL,mavuikaAxis(rig.limbAxes.handL),-.06*sitWeight);applyWorldTurn(rig.handR,mavuikaAxis(rig.limbAxes.handR),.06*sitWeight);
+      applyWorldTurn(rig.head,AX,seatBreath*.01*sitWeight);
       rig.bob=0;rig.lean=0;return;
     }
     applyWorldTurn(rig.pelvis,AX,-s*.035*rig.moveAmt);
@@ -514,14 +560,16 @@ function poseCharacter(dt,speed,t){
     rig.bob=walking?Math.abs(Math.sin(rig.phase))*.035*move*(1+run*.8):0;
     rig.lean=walking?run*.12*rig.moveAmt:0;return;
   }
-  if(seated){
+  if(sitWeight>.01){
     rig.moveAmt=lerp(rig.moveAmt,0,1-Math.exp(-12*dt));
-    rig.pelvis.position.y=lerp(rig.pelvis.position.y,.62,1-Math.exp(-8*dt));
-    rig.pelvis.rotation.x=-.08;rig.spine.rotation.x=.08;
-    rig.hipP.quaternion.setFromAxisAngle(AX,-1.28);rig.hipN.quaternion.setFromAxisAngle(AX,-1.28);
-    rig.kneeP.quaternion.setFromAxisAngle(AX,1.28);rig.kneeN.quaternion.setFromAxisAngle(AX,1.28);
-    const setArm=(bone,lower)=>{qA.setFromAxisAngle(AX,-.08);qB.setFromAxisAngle(AZ,lower);bone.quaternion.copy(qA).multiply(qB)};
-    setArm(rig.shP,-ARM_DOWN);setArm(rig.shN,ARM_DOWN);
+    const seatBreath=Math.sin(t*1.55);
+    const seatPelvisY=rig.seatPelvisY??.62;
+    rig.pelvis.position.y=lerp(rig.pelvis.position.y,.84+(seatPelvisY-.84)*sitWeight+seatBreath*.008*sitWeight,1-Math.exp(-7*dt));
+    rig.pelvis.rotation.x=(-.07+seatBreath*.012)*sitWeight;rig.spine.rotation.x=(.08+seatBreath*.014)*sitWeight;
+    rig.hipP.quaternion.setFromAxisAngle(AX,-1.28*sitWeight);rig.hipN.quaternion.setFromAxisAngle(AX,-1.28*sitWeight);
+    rig.kneeP.quaternion.setFromAxisAngle(AX,1.28*sitWeight);rig.kneeN.quaternion.setFromAxisAngle(AX,1.28*sitWeight);
+    const setArm=(bone,lower,swing)=>{qA.setFromAxisAngle(AX,(-.08+swing)*sitWeight);qB.setFromAxisAngle(AZ,lower*sitWeight);bone.quaternion.copy(qA).multiply(qB)};
+    setArm(rig.shP,-ARM_DOWN,seatBreath*.015);setArm(rig.shN,ARM_DOWN,-seatBreath*.015);
     rig.bob=0;rig.lean=0;return;
   }
   const target=clamp(speed/CFG.walk,0,2.4);
@@ -584,7 +632,9 @@ function canSitAtSofa(){return activeMap?.home&&!seated&&Math.hypot(S.pos.x-SOFA
 function sitOnSofa(){
   if(!canSitAtSofa())return;
   seatCameraReturn={yaw:S.camYaw,pitch:S.camPitch,dist:S.camDist,face:S.face};
-  seated=true;S.speed=0;S.pos.set(SOFA_SEAT.x,SOFA_SEAT.y,SOFA_SEAT.z);S.face=0;
+  // Keep the character root at floor level. The pelvis is calibrated to the
+  // cushion height so the feet do not lift together with the entire model.
+  seated=true;S.speed=0;S.pos.set(SOFA_SEAT.x,spawn.y,SOFA_SEAT.z);S.face=0;
   S.camYaw=0;S.camPitch=.24;S.camDist=4.0;openChat();
 }
 let spawn=new THREE.Vector3();
@@ -1330,7 +1380,11 @@ function openChat(){
 function closeChat(){
   S.chat=false;$('#chat').classList.remove('on');$('#cin').blur();
   if(seated){
-    seated=false;S.pos.set(SOFA_SEAT.x,SOFA_SEAT.y,clamp(SOFA_SEAT.z+1.05,HOME_ZONE.minZ+0.5,HOME_ZONE.maxZ-0.5));
+    seated=false;
+    const exitZ=clamp(SOFA_SEAT.z+1.05,HOME_ZONE.minZ+0.5,HOME_ZONE.maxZ-0.5);
+    const exitGround=groundAt(SOFA_SEAT.x,exitZ,mapBox.max.y+2,mapBox.max.y-mapBox.min.y+4);
+    const exitY=exitGround!==null&&exitGround<SOFA_SEAT.y-.15?exitGround:spawn.y;
+    S.pos.set(SOFA_SEAT.x,exitY,exitZ);
     S.face=seatCameraReturn?.face??Math.PI;S.camYaw=seatCameraReturn?.yaw??0;
     S.camPitch=seatCameraReturn?.pitch??.32;S.camDist=seatCameraReturn?.dist??CFG.camDist;
     S.speed=0;seatCameraReturn=null;
@@ -1380,7 +1434,7 @@ function frame(now){
   $('#raceStamina').hidden=S.mode!=='race';
   $('#raceModeStatus').hidden=S.mode!=='race';
   if(S.mode==='race')updateRaceStaminaHud();
-  shadow.position.set(S.pos.x,S.pos.y+0.03,S.pos.z);
+  shadow.position.set(S.pos.x,seated?SOFA_SEAT.y+0.035:S.pos.y+0.03,S.pos.z);
   updateCamera(dt);
   // mangkuk
   let nearest=null,nd=1e9;
@@ -1428,7 +1482,7 @@ function finishRace(){
   setTimeout(()=>$('#win').classList.add('on'),900);
 }
 function startRun(seed){
-  seated=false;seatCameraReturn=null;
+  seated=false;seatCameraReturn=null;rig.seatBlend=0;
   S.pos.copy(spawn);S.face=activeMapId==='city'?citySpawnFace:Math.PI;S.camYaw=activeMapId==='city'?Math.atan2(-Math.sin(citySpawnFace),-Math.cos(citySpawnFace)):0;S.camPitch=.32;S.camDist=activeMap?.cameraDist??CFG.camDist;S.speed=0;S.jumpQueued=false;S.jumpVelocity=0;S.isJumping=false;S.onGround=true;S.done=false;S.t0=0;S.questStarted=false;S.questReady=false;S.raceStarted=false;S.raceChallengePending=false;S.raceChallengeShown=false;S.stamina=100;S.sprintCooldown=0;S.sprinting=false;S.originalGot=0;
   $('#timer').textContent='0:00';
   S.mode=activeMap?.home?'home':activeMap?.race?'race':'collect';
@@ -1532,8 +1586,9 @@ async function activateMap(id,difficulty=raceDifficulty){
     spawn.set(sp.x,sp.y,sp.z);
     raceGraph=next.race?buildRaceGraph(cands,walkableGridStep()):null;
     placeOriginalNpc(og,next,cands);
-    if(next.home)SOFA_SEAT.y=sp.y;
+    if(next.home)SOFA_SEAT.y=findSofaSeatY(sp.y);
     player.scale.setScalar(rig.baseScale*(next.home?0.82:(next.characterScale??1)));
+    calibrateSofaPose();
     shadow.scale.setScalar(next.characterScale??1);
     camera.far=next.home?120:700;camera.updateProjectionMatrix();
     S.ready=true;startRun(11);

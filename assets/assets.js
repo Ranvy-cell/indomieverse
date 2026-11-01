@@ -9,6 +9,7 @@ window.IV_ASSETS={
     {type:'video',src:'assets/video/iklan-1.mp4',label:'INDOMIE · BRAND CAMPAIGN',title:'Indomie, Hadir untuk Semua.',caption:'Dari yang dekat sampai yang jauh, dari yang punya sampai yang butuh.',cta:'Jelajahi Cerita',go:'collection'},
     {type:'video',src:'assets/video/iklan-2.mp4',title:'Hangat di Setiap Cerita.',caption:'Kenyamanan, kenangan, dan momen sederhana.'},
     {type:'video',src:'assets/video/iklan-3.mp4',title:'Satu Mangkuk, Sejuta Kehangatan.',caption:'Setiap mangkuk membawa ceritanya sendiri.'},
-    {type:'video',src:'assets/video/iklan-4.mp4',title:'Selalu Ada di Cerita Kita.',caption:'Untuk mahasiswa, pekerja, dan keluarga.'}
+    {type:'video',src:'assets/video/iklan-4.mp4',title:'Selalu Ada di Cerita Kita.',caption:'Untuk mahasiswa, pekerja, dan keluarga.'},
+    {type:'video',src:'assets/video/iklan-5.mp4',title:'Cerita Baru, Semangat yang Sama.',caption:'Nikmati iklan terbaru Indomieverse.'}
   ]
 };
